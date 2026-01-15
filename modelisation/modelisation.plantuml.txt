@@ -1,0 +1,393 @@
+
+
+namespace fce {
+
+    class MainWindow
+    {
+        - m_hInstance : HINSTANCE
+        - m_hWnd : HWND
+        - m_widht : uint32_t
+        - m_height : uint32_t
+        - m_pathFileScene : string
+        - m_isInit : bool
+        - m_keys : bool[256]
+        - m_application : Application
+
+        + MainWindow(in hInstance : HINSTANCE, in width : uint32_t, in height : uint32_t,
+            in m_pathFileScene : string)
+
+        + initialize() : void
+        + run() : int
+
+        - messageHandler(in hWnd : HWND, in message : UINT, in wParam : WPARAM, in lParam : LPARAM) : LRESULT
+
+        - registerWindowClass() : bool
+        - createAppWindow() : bool
+        - initializeRenderer() : bool
+
+        - {static} windowHandler(in hWnd : HWND, in message : UINT, 
+            in wParam : WPARAM, in lParam : LPARAM) : LRESULT
+    }
+
+    class Application
+    {
+        - m_renderApplication : fge::Application
+        - m_objectManager : ObjectManager
+        - m_updateContext : UpdateContext
+
+        + initialize(in hWnd : HWND, in width : uint32_t, in height : uint32_t,
+            in m_pathFileScene : string) : void
+
+        + update() : void
+        + resize(in width : uint32_t, in height : uint32_t) : void
+        + stopEngine() : void
+
+        + update() : void
+        + onKeyDown(in vk : int) void
+        + onMouseButtonDown(in button : int) void
+        + onMouseButtonUp(in button : int) void
+        + onRawMouseDelta(in dx : LONG, in dy : LONG) void
+        + onMouseWheel(in delta : short) void
+        + onLoseFocus() : void
+        + onHasFocus() : void
+
+        + getUpdateContext() : const UpdateContext*
+    }
+
+    class UpdateContext
+    {
+        - m_deltaTime : double
+        - m_input : InputManager
+        - m_renderScene : shared_ptr<FgeScene>
+
+        + initialize(in renderScene : shared_ptr<FgeScene>)
+
+        + getDeltaTime() : double
+        + getInput() : InputManager
+        + getRenderScene() : FgeScene*
+        
+        + update() : void
+        + onKeyDown(in vk : int) void
+        + onMouseButtonDown(in button : int) void
+        + onMouseButtonUp(in button : int) void
+        + onRawMouseDelta(in dx : LONG, in dy : LONG) void
+        + onMouseWheel(in delta : short) void
+        + onLoseFocus() : void
+        + onHasFocus() : void
+
+        - updateInputs() : void        
+        - updateDeltaTime() : void
+    }
+
+    namespace objects {
+
+        class ObjectManager
+        {
+            - m_gameObjectPool : GameObjectMemoryManager
+            - m_gameObjectLogicalIndexPool : IndexAllocator
+            - m_updateContext : const UpdateContext*
+            - m_renderScene : shared_ptr<FgeScene>
+            - m_renderedGameObjectMoved : vector<LogicalIndex>
+            - m_LightGameObjectMoved : vector<LogicalIndex>
+            - m_currentRenderCamera : LogicalIndex
+            - m_hasRenderCameraMoved : bool
+
+            + initialize(in updateContext : const UpdateContext*, in renderScene : shared_ptr<FgeScene>) : void
+            + initialize(in updateContext : const UpdateContext*, in renderScene : shared_ptr<FgeScene>,
+                in reader : XmlReader) : void
+            
+            + instantiate(in out components : GameObject) : void
+
+            + getGameObject(in gameObjectIndex : LogicalIndex) : GameObject
+
+            + update() : void
+            - updateComponents() : void
+            - updateRender() : void
+
+            + onComponentMoved(in component : TransformComponent) : void
+            + setRenderCamera(in component : CameraComponent) : void
+        }
+
+        class GameObjectMemoryManager
+        {
+            - m_objectsPool : PageBasedAllocator
+            - m_logicalIndexToPhysical : vector<uint32_t>
+
+            + initialize() : void
+
+            + getGameObjectPageSize() : uint64_t
+            + getNbMaxGameObjects() : uint64_t
+            + getNbGameObjects() : uint32_t
+
+            + get(in gameObjectIndex : LogicalIndex) : GameObject
+            + iterateOverGameObjects() : iterator<GameObject>
+
+            + add(in out gameObject : GameObject, in gameObjectIndex : LogicalIndex) : PhysicalIndex
+            + free(in gameObjectIndex : LogicalIndex) : void
+        }
+
+        class GameObject
+        {
+            - m_updateContext : const UpdateContext*
+            - m_objectManager : ObjectManager*
+            - m_index : LogicalIndex
+            - m_components : unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>>
+            - m_scripts : unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>>
+            
+            + GameObject()
+            + GameObject(
+                in out components : unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>>,
+                in out scripts : unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>>)
+            + GameObject(in index : LogicalIndex, 
+                in components : unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>>,
+                in scripts : unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>>)
+
+            + initialize(in updateContext : const UpdateContext*, in objectManager : ObjectManager*,
+                in index : LogicalIndex) : void
+
+            + getIndex() : LogicalIndex
+            + getObjectManager() : ObjectManager*
+            + getUpdateContext() : const UpdateContext*
+
+            + hasComponent<TYPE>() : bool
+
+            + addComponent<TYPE>() : void
+            + removeComponent<TYPE>() : void
+            + getComponent<TYPE>() : TYPE*
+            + getComponent<TYPE>() : vector<TYPE>
+
+            + update() : void
+        }
+
+        abstract class Component
+        {
+            # m_gameObject : GameObject*
+
+            + initialize(in gameObject : GameObject*) : void
+
+            + getGameObject() : GameObject
+        }
+
+        namespace engine_components
+        {
+            enum EngineComponentType
+            {
+                + TRANSFORM,
+                + CAMERA,
+                + RENDER,
+                + LIGHT_POINT
+            }
+
+            abstract class EngineComponent
+            {
+
+            }
+            Component <|-- EngineComponent
+
+            class TransformComponent
+            {
+                - m_transform : Transform
+
+                + TransformComponent()
+                + TransformComponent(in transform : Transform)
+
+                + getTransform() : Transform
+                + setTransform(in transform : Transform) : void
+            }
+            EngineComponent <|-- TransformComponent
+
+            class CameraComponent
+            {
+                - m_physicalWidth : float
+                - m_physicalHeight : float
+                - m_depth : float
+
+                + CameraComponent()
+                + CameraComponent(in physicalWidth : float, in physicalHeight : float,
+                    in depth : float)
+
+                + getCamera() : Camera
+            }
+            EngineComponent <|-- CameraComponent
+
+            class RenderComponent
+            {
+                + m_meshIndex : LogicalIndex
+                + m_instanceIndex : LogicalIndex
+
+                + RenderComponent()
+                + RenderComponent(in meshIndex : LogicalIndex, in instanceIndex : LogicalIndex)
+
+                + RenderComponent()
+            }
+            EngineComponent <|-- RenderComponent
+
+            class LightPointComponent
+            {
+                + m_lightIndex : LogicalIndex
+                + m_radiance : XMFLOAT3
+
+                + LightPointComponent()
+                + LightPointComponent(in lightIndex : LogicalIndex, radiance : XMFLOAT3)
+            }
+            EngineComponent <|-- LightPointComponent
+        }
+
+        namespace scripts
+        {
+            enum ScriptComponentType
+            {
+                + THIRD_VIEW_PLAYER,
+                + PLAYER,
+                + ZOMBIE,
+                + CAMERA_MANAGER,
+                + PLAYER_MANAGER,
+                + DEBUG_POSITION
+            }
+
+            abstract class ScriptComponent
+            {
+                + {abstract} update() : void
+            }
+            Component <|-- ScriptComponent
+
+            class ThirdViewPlayerComponent
+            {
+                - m_playerObjectIndex : LogicalIndex
+                - m_cameraIndex : LogicalIndex
+                - m_mouseSensitivity : float
+                - m_minDistance : float
+                - m_maxDistance : float
+                - m_heightOffset : float
+                - m_sideOffset : float
+                - m_distance : float
+                - m_yaw : float
+                - m_pitch : float
+
+                + ThirdViewPlayerComponent()
+                + ThirdViewPlayerComponent(in mouseSensitivity : float, 
+                    in minDistance : float, in maxDistance : float, in heightOffset : float, in sizeOffset : float)
+
+                + update() : void
+            }
+            ScriptComponent <|-- ThirdViewPlayerComponent
+
+            class PlayerComponent
+            {
+                - m_moveSpeed : float
+                - m_rotateSpeed : float
+                - m_acceleration : float
+
+                + PlayerComponent()
+                + PlayerComponent(in moveSpeed : float, in rotateSpeed : float,
+                    in acceleration : float)
+
+                + update() : void
+            }
+            ScriptComponent <|-- PlayerComponent
+
+            class PlayerManagerComponent
+            {
+                - m_players : vector<LogicalIndex>
+                - m_currentId : int
+                - m_moveSpeed : float
+                - m_rotateSpeed : float
+                - m_acceleration : float
+
+                + PlayerManagerComponent()
+                + PlayerManagerComponent(in players : vector<LogicalIndex> : 
+                    in moveSpeed : float, in rotateSpeed : float, in acceleration : float)
+
+                + update() : void
+            }
+            ScriptComponent <|-- PlayerManagerComponent
+
+            class ZombieComponent
+            {
+                - m_targetGameObjectIndex : LogicalIndex
+                - m_moveSpeed : float
+                - m_rotateSpeed : float
+                - m_stopDistance : float
+
+                + ZombieComponent()
+                + ZombieComponent(in targetGameObjectIndex : LogicalIndex, in moveSpeed : float,
+                    in rotateSpeed : float, in stopDistance : float)
+
+                + update() : void
+            }
+            ScriptComponent <|-- ZombieComponent
+
+            class CameraManagerComponent
+            {
+                - m_cameras : vector<LogicalIndex>
+                - m_currentId : int
+
+                + CameraManagerComponent()
+                + CameraManagerComponent(in cameras : vector<LogicalIndex>)
+
+                + update() : void
+            }
+            ScriptComponent <|-- CameraManagerComponent
+
+            class DebugPositionComponent
+            {
+                + DebugPositionComponent()
+
+                + update() : void
+            }
+            ScriptComponent <|-- DebugPositionComponent
+        }
+    }
+
+    namespace io {
+        enum KeyState
+        {
+            + IDLE
+            + PRESSED
+            + PUSH
+            + RELEASED
+        }
+
+        class InputManager
+        {
+            - m_shouldReadInput : bool
+
+            + getKeyState(in vk : int) : KeyState
+            + getMouseButton(in button : int) : KeyState
+            + getDeltaMouse() : POINT
+            + getMousePosition() : POINT
+            + getMouseWheelDelta() : int
+
+            + update() : void
+            + onKeyDown(in vk : int) void
+            + onMouseButtonDown(in button : int) void
+            + onMouseButtonUp(in button : int) void
+            + onRawMouseDelta(in dx : LONG, in dy : LONG) void
+            + onMouseWheel(in delta : short) void
+            + onLoseFocus() : void
+            + onHasFocus() : void
+        }
+
+        class XmlReader 
+        {
+            + m_renderReader : unique_ptr<fge::XmlReader>
+            + m_gameObjects : vector<GameObject>
+            + m_renderCameraGameObject : LogicalIndex
+
+            + XmlReader(in pathFile : string)
+
+            - loadRenderReader(in root : XMLElement) : void
+            - loadGameObjects(in root : XMLElement) : void
+            - loadTransformComponent(in root : XMLElement) : TransformComponent
+            - loadCameraComponent(in root : XMLElement) : CameraComponent
+            - loadRenderComponent(in root : XMLElement) : RenderComponent
+            - loadThirdViewPlayerComponent(in root : XMLElement) : ThirdViewPlayerComponent
+            - loadPlayerComponent(in root : XMLElement) : PlayerComponent
+            - loadLightPointComponent(in root : XMLElement) : LightPointComponent
+            - loadZombieComponent(in root : XMLElement) : ZombieComponent
+            - loadCameraManagerComponent(in root : XMLElement) : CameraManagerComponent
+            - loadPlayerManagerComponent(in root : XMLElement) : PlayerManagerComponent
+            - loadDebugPositionComponent(in root : XMLElement) : DebugPositionComponent
+        }
+    }
+}

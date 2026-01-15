@@ -1,0 +1,6 @@
+
+target_sources(fge PRIVATE
+    AnariScene.cpp
+    MainRenderer.cpp)
+
+add_subdirectory(data)

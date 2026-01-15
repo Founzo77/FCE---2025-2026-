@@ -1,0 +1,14 @@
+
+target_sources(fge PRIVATE
+    Camera.cpp
+    Device.cpp
+    Frame.cpp
+    Geometry.cpp
+    Group.cpp
+    Instance.cpp
+    Library.cpp
+    Light.cpp
+    Material.cpp
+    Renderer.cpp
+    Surface.cpp
+    World.cpp)

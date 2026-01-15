@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<scene>
+    <perspective_camera depth="0.3" width="1" height="1" size_pixel="0.1">
+        <origin x="-5.74365" y="5.44444" z="-1.40559"/>
+        <forward x="0.940233" y="0" z="-0.340532"/>
+        <up x="0" y="1" z="0"/>
+    </perspective_camera>
+
+    <meshes>
+        <include id="0" path="scene/bugati/obj/car.obj" scale="1">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+
+        <include id="2" path="scene/floor/floor.obj" scale="50">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+
+        <include id="3" path="scene/garage/Garage.obj" scale="1">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+
+        <include id="4" path="scene/mirror/mirror_face.obj" scale="0.8">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+        <include id="5" path="scene/mirror/mirror_deco.obj" scale="0.8">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+    </meshes>
+
+    <game_objects render_camera_id="0">
+        <game_object id="0" name="main_camera">
+            <transform>
+                <translation x="0.19638" y="1.50167" z="8.00842"/>
+                <rotation x="0" y="180" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <camera depth="0.3" width="1" height="1"/>
+            <light_point id="4">
+                <radiance x="0" y="0" z="0"/>
+            </light_point>
+
+            <debug_position/>
+        </game_object>
+
+        <game_object id="1" name="ground">
+            <transform>
+                <translation x="0" y="0" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <render mesh_id="2"/>
+        </game_object>
+
+        <game_object id="2" name="light_0">
+            <transform>
+                <translation x="-1.93506" y="5.04295" z="3.07447"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <light_point id="0">
+                <radiance x="0.6" y="0.6" z="0.6"/>
+            </light_point>
+        </game_object>
+
+        <game_object id="3" name="light_1">
+            <transform>
+                <translation x="4.22613" y="5.04295" z="3.19775"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <light_point id="1">
+                <radiance x="0.6" y="0.6" z="0.6"/>
+            </light_point>
+        </game_object>
+
+        <game_object id="4" name="light_2">
+            <transform>
+                <translation x="3.38916" y="5.04295" z="-2.17893"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <light_point id="2">
+                <radiance x="0.6" y="0.6" z="0.6"/>
+            </light_point>
+        </game_object>
+
+        <game_object id="5" name="light_3">
+            <transform>
+                <translation x="-2.70724" y="5.04295" z="-2.3303"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <light_point id="3">
+                <radiance x="0.6" y="0.6" z="0.6"/>
+            </light_point>
+        </game_object>
+
+        <game_object id="6" name="car">
+            <transform>
+                <translation x="-1" y="0.1" z="-2"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <render mesh_id="0"/>
+        </game_object>
+
+        <game_object id="7" name="garage">
+            <transform>
+                <translation x="0" y="0" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <render mesh_id="3"/>
+        </game_object>
+
+        <game_object id="8" name="camera_third_view_car">
+            <transform>
+                <translation x="0" y="0" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <camera depth="0.3" width="1" height="1"/>
+            <third_view_player camera_game_object_id="8" mesh_game_object_id="6"
+                mouse_sensitivity="2.5" min_distance="2.0" max_distance="12" 
+                height_offset="2" side_offset="1.6"/>
+        </game_object>
+
+        <game_object id="9" name="player_camera_manager">
+            <player_manager player_game_object_ids="0 6"
+                move_speed="2.5" rotate_speed="1" acceleration="4"/>
+            <camera_manager camera_game_object_ids="0 8" />
+        </game_object>
+
+        <game_object id="10" name="mirror_face">
+            <transform>
+                <translation x="7.10198" y="0.2" z="-2.84694"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="4"/>
+        </game_object>
+        <game_object id="11" name="mirror_deco">
+            <transform>
+                <translation x="7.10198" y="0.2" z="-2.84694"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="5"/>
+        </game_object>
+
+        <game_object id="12" name="mirror_face">
+            <transform>
+                <translation x="7.10198" y="0.2" z="-0.84694"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="4"/>
+        </game_object>
+        <game_object id="13" name="mirror_deco">
+            <transform>
+                <translation x="7.10198" y="0.2" z="-0.84694"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="5"/>
+        </game_object>
+        
+        <game_object id="14" name="mirror_face">
+            <transform>
+                <translation x="7.10198" y="0.2" z="1.15306"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="4"/>
+        </game_object>
+        <game_object id="15" name="mirror_deco">
+            <transform>
+                <translation x="7.10198" y="0.2" z="1.15306"/>
+                <rotation x="0" y="90" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render mesh_id="5"/>
+        </game_object>
+
+
+        <game_object id="16" name="mirror_face_opposite">
+            <transform>
+                <translation x="-3.98874" y="0.2" z="-0.15409"/>
+                <rotation x="0" y="-90" z="0"/>
+                <scale x="2" y="1" z="1"/>
+            </transform>
+            <render mesh_id="4"/>
+        </game_object>
+        <game_object id="17" name="mirror_deco_opposite">
+            <transform>
+                <translation x="-3.98874" y="0.2" z="-0.15409"/>
+                <rotation x="0" y="-90" z="0"/>
+                <scale x="2" y="1" z="1"/>
+            </transform>
+            <render mesh_id="5"/>
+        </game_object>
+    </game_objects>
+
+    <!-- TO_DO : Supprimer ca quand possible -->
+    <instances/>
+    <emitters/>
+</scene>

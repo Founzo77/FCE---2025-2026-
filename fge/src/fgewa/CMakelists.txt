@@ -1,0 +1,5 @@
+
+target_sources(fge PRIVATE
+    AnariApplication.cpp)
+
+add_subdirectory(render)

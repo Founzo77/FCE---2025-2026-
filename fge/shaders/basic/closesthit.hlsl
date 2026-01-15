@@ -1,0 +1,294 @@
+#include "common.hlsli"
+
+inline float computeRadiance(in float3 color)
+{
+    return (color.x + color.y + color.z) / 3; 
+} 
+
+inline float2 computeUv(in Vertex v0, in Vertex v1, in Vertex v2, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    return v0.m_uv * (1.0 - attr.barycentrics.x - attr.barycentrics.y) +
+        v1.m_uv * attr.barycentrics.x +
+        v2.m_uv * attr.barycentrics.y;
+}
+
+inline float3 computeNormal(in Vertex v0, in Vertex v1, in Vertex v2, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    return v0.m_normal * (1.0 - attr.barycentrics.x - attr.barycentrics.y) +
+        v1.m_normal * attr.barycentrics.x +
+        v2.m_normal * attr.barycentrics.y;
+}
+
+inline float3 computeHitPosition(in Vertex v0, in Vertex v1, in Vertex v2, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    float b1 = attr.barycentrics.x;
+    float b2 = attr.barycentrics.y;
+    float b0 = 1.0 - b1 - b2;
+    float3 hitPosition = b0 * v0.m_position + b1 * v1.m_position + b2 * v2.m_position;
+
+    return hitPosition;
+}
+
+inline float3x3 computeTBN(in Vertex v0, in Vertex v1, in Vertex v2, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    float3 interpNormal = computeNormal(v0, v1, v2, attr);
+
+    interpNormal = normalize(interpNormal);
+
+    float3 dp1 = v1.m_position - v0.m_position;
+    float3 dp2 = v2.m_position - v0.m_position;
+    float2 duv1 = v1.m_uv - v0.m_uv;
+    float2 duv2 = v2.m_uv - v0.m_uv;
+
+    float r = 1.0 / (duv1.x * duv2.y - duv1.y * duv2.x);
+
+    float3 tangent = normalize((dp1 * duv2.y - dp2 * duv1.y) * r);
+    float3 bitangent = normalize((dp2 * duv1.x - dp1 * duv2.x) * r);
+
+    float3x3 TBN = float3x3(tangent, bitangent, interpNormal);
+
+    return TBN;
+}
+
+inline float3 evalPhong(in float3 hitPosition, in float3 normal, in float3 albedo,
+    in float3 ks, in float shininess, in RayPayload oldPayload)
+{
+    uint nbLights = g_constantInformations.m_nbLights;
+
+    float3 resultColor = 0;
+
+    // TO_DO mettre le ambientColor dans la scene ou le materiau
+    float3 ambientColor = float3(0.2, 0.2, 0.2);
+    resultColor += ambientColor * albedo.rgb;
+
+    float3 cameraPosition = g_constantInformations.m_position.xyz;
+
+    for (int i = 0; i < nbLights; i++)
+    {
+        Light light = g_lights[i];
+
+        float3 toLight = light.m_position - hitPosition;
+        float distanceToLight = length(toLight);
+        float3 directionToLight = normalize(toLight);
+
+        RayDesc ray;
+        ray.Origin = hitPosition + normal * 1e-3;
+        ray.Direction = directionToLight;
+        ray.TMin = 0.0f;
+        ray.TMax = distanceToLight - 1e-3f;
+
+        RayPayload payload;
+        payload.m_type = RAY_TYPE_SHADOW;
+        shadowRayPayloadSetMaxHitDistance(payload, distanceToLight - 1e-3f);
+        shadowRayPayloadSetWeight(payload, float3(1, 1, 1));
+        shadowRayPayloadSetNbBounds(payload, secondaryRayPayloadGetNbBounds(oldPayload) + 1);
+
+        TraceRay(g_scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, payload);
+
+        if (shadowRayPayloadGetInstanceId(payload) == UINT32_MAX) // Light
+        {
+            float NdotL = max(dot(normal, directionToLight), 0.0f);
+            //resultColor += albedo.rgb * light.m_radiance * NdotL;
+            float3 radianceLight = light.m_radiance * shadowRayPayloadGetWeight(payload);
+
+            float3 V = normalize(cameraPosition - hitPosition);
+
+            // Diffuse
+            float3 diffuse = albedo.rgb * radianceLight * NdotL;
+
+            // Specular (Phong)
+            float3 R = reflect(-directionToLight, normal);
+            float RdotV = max(dot(R, V), 0.0f);
+
+            float3 specular = ks * pow(RdotV, shininess) * radianceLight;
+
+            resultColor += diffuse + specular;
+        }
+    }
+
+    return resultColor;
+}
+
+inline void resolvePhongIntegrator(inout RayPayload payload, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    uint idTriangle = PrimitiveIndex();
+    uint3 triangleIndices = g_indices[idTriangle];
+
+    Vertex v0 = g_vertices[triangleIndices.x];
+    Vertex v1 = g_vertices[triangleIndices.y];
+    Vertex v2 = g_vertices[triangleIndices.z];
+
+    SubMeshData subMeshData = g_subMeshData;
+    Material material = g_materials[g_logicalMaterialIndexToPhysical[subMeshData.m_materialIndex]];
+
+    uint textureIndex = material.m_albedoTextureIndex;
+    float2 uv = computeUv(v0, v1, v2, attr);
+
+    float3 albedo = float3(0, 0, 0);
+
+    if (textureIndex != UINT32_MAX) // UINT_32_MAX
+    {
+        uint idx = NonUniformResourceIndex(textureIndex);
+        albedo = g_textures[idx].SampleLevel(g_sampler, uv, 0.0f).rgb;
+    }
+
+    uint normalTexIndex = material.m_normalTextureIndex;
+
+    float3 normalTex = float3(0,0,1);
+
+    if (normalTexIndex != UINT32_MAX) 
+    {
+        normalTex = g_textures[normalTexIndex].SampleLevel(g_sampler, uv, 0).xyz;
+        normalTex = normalize(normalTex * 2.0 - 1.0); // [0,1] → [-1,1]
+    }
+
+    float3x4 worldMat3x4 = ObjectToWorld3x4();
+
+    float3x3 TBN = computeTBN(v0, v1, v2, attr);
+
+    float3 normalLocal = normalize(mul(normalTex, TBN));
+    float3 normal = normalize(mul((float3x3)worldMat3x4, normalLocal));
+
+    float3 hitLocal = computeHitPosition(v0, v1, v2, attr);
+    float3 hitPosition = mul(worldMat3x4, float4(hitLocal, 1.0f));
+
+    float3 weight = secondaryRayPayloadGetWeight(payload);
+
+    float3 directColor = 0;
+    if(computeRadiance(albedo) != 0)
+    {
+        directColor = evalPhong(
+            hitPosition, normal, albedo, material.m_ks, material.m_shininess, payload) * weight;
+    }
+    uint nbBounds = secondaryRayPayloadGetNbBounds(payload);
+
+    float3 finalColor = directColor;
+
+    if(nbBounds < MAX_RAY_NB_BOUNDS)
+    {
+        float3 reflectanceWeight = material.m_reflectance * weight;
+
+        if(computeRadiance(reflectanceWeight) >= MIN_REFLECTANCE_WEIGHT_FOR_BOUND)
+        {
+            RayDesc secondaryRayDesc;
+            secondaryRayDesc.Origin = hitPosition;
+            secondaryRayDesc.Direction = reflect(WorldRayDirection(), normal);
+            secondaryRayDesc.TMin = 0.001f;
+            secondaryRayDesc.TMax = 10000.0f;
+        
+            RayPayload secondaryPayload;
+            secondaryPayload.m_type = RAY_TYPE_SECONDARY;
+            secondaryRayPayloadSetNbBounds(secondaryPayload, nbBounds + 1);
+            secondaryRayPayloadSetWeight(secondaryPayload, reflectanceWeight);
+
+            TraceRay(g_scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, secondaryRayDesc, secondaryPayload);
+
+            finalColor += secondaryRayPayloadGetColor(secondaryPayload);
+        }
+
+        float3 transmittanceWeight = material.m_transmittance * weight;
+
+        if(computeRadiance(transmittanceWeight) >= MIN_TRANSMITTANCE_WEIGHT_FOR_BOUND)
+        {
+            RayDesc secondaryRayDesc;
+            secondaryRayDesc.Origin = hitPosition;
+            secondaryRayDesc.Direction = WorldRayDirection();
+            secondaryRayDesc.TMin = 0.001f;
+            secondaryRayDesc.TMax = 10000.0f;
+        
+            RayPayload secondaryPayload;
+            secondaryPayload.m_type = RAY_TYPE_SECONDARY;
+            secondaryRayPayloadSetNbBounds(secondaryPayload, nbBounds + 1);
+            secondaryRayPayloadSetWeight(secondaryPayload, transmittanceWeight);
+
+            TraceRay(g_scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, secondaryRayDesc, secondaryPayload);
+
+            finalColor += secondaryRayPayloadGetColor(secondaryPayload);
+        }
+    }
+
+    cameraRayPayloadSetColor(payload, finalColor);
+}
+
+inline void handleCameraRay(inout RayPayload payload, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    resolvePhongIntegrator(payload, attr);
+}
+
+inline void handleSecondaryRay(inout RayPayload payload, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    resolvePhongIntegrator(payload, attr);
+}
+
+inline void handleShadowRay(inout RayPayload payload, 
+    in BuiltInTriangleIntersectionAttributes attr)
+{
+    //shadowRayPayloadSetInstanceId(payload, InstanceID());
+
+    SubMeshData subMeshData = g_subMeshData;
+    Material material = g_materials[g_logicalMaterialIndexToPhysical[subMeshData.m_materialIndex]];
+
+    float3 transmittanceWeight = material.m_transmittance;
+    uint nbBounds = shadowRayPayloadGetNbBounds(payload);
+
+    if(computeRadiance(transmittanceWeight) >= MIN_TRANSMITTANCE_WEIGHT_FOR_BOUND
+        && nbBounds < MAX_RAY_NB_BOUNDS)
+    {
+        float3 rayDir = WorldRayDirection();
+        float tHit = RayTCurrent();
+        float tMax = shadowRayPayloadGetMaxHitDistance(payload);
+
+        float3 newOrigin = WorldRayOrigin() + rayDir * (tHit + 1e-4);
+
+        RayDesc rayDesc;
+        rayDesc.Origin = newOrigin;
+        rayDesc.Direction = rayDir;
+        rayDesc.TMin = 0.001f;
+        rayDesc.TMax = max(0.0f, tMax - tHit - 1e-4);
+
+        RayPayload newPayload;
+        newPayload.m_type = RAY_TYPE_SHADOW;
+
+        float3 newWeight = shadowRayPayloadGetWeight(payload) * transmittanceWeight;
+        shadowRayPayloadSetMaxHitDistance(newPayload, rayDesc.TMax);
+        shadowRayPayloadSetWeight(newPayload, newWeight);
+        shadowRayPayloadSetNbBounds(newPayload, nbBounds + 1);
+
+        TraceRay(g_scene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, rayDesc, newPayload);
+
+        shadowRayPayloadSetWeight(payload, shadowRayPayloadGetWeight(newPayload));
+        shadowRayPayloadSetInstanceId(payload, shadowRayPayloadGetInstanceId(newPayload));
+    }
+    else
+    {
+        shadowRayPayloadSetInstanceId(payload, InstanceID());
+    }
+}
+
+[shader("closesthit")]
+void ClosestHitShader(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    switch(payload.m_type)
+    {
+        case RAY_TYPE_CAMERA:
+            handleCameraRay(payload, attr);
+            break;
+        case RAY_TYPE_SECONDARY:
+            handleSecondaryRay(payload, attr);
+            break;
+        case RAY_TYPE_SHADOW:
+            handleShadowRay(payload, attr);
+            break;
+        default:
+            cameraRayPayloadSetColor(payload, float3(0.5, 0.2, 1));
+            break;
+    }
+}
+

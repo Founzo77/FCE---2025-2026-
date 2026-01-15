@@ -1,0 +1,28 @@
+#pragma once
+
+#include "DeviceCamera.hpp"
+
+namespace fge
+{
+    struct alignas(16) DeviceConstantInformations
+    {
+    public:
+        XMFLOAT4 m_position;
+        XMFLOAT4 m_forward;
+        XMFLOAT4 m_up;
+        XMFLOAT4 m_right;
+        float m_physicalWidth;
+        float m_physicalHeight;
+        float m_depth;
+        uint32_t m_nbLights;
+
+    public:
+        DeviceConstantInformations() = default;
+        ~DeviceConstantInformations() = default;
+
+        DeviceConstantInformations(const DeviceConstantInformations&) = default;
+        DeviceConstantInformations& operator=(const DeviceConstantInformations&) = default;
+        DeviceConstantInformations(DeviceConstantInformations&&) = default;
+        DeviceConstantInformations& operator=(DeviceConstantInformations&&) = default;
+    };
+}

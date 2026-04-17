@@ -7,3 +7,4 @@ target_sources(fce PRIVATE
 
 add_subdirectory(scripts)
 add_subdirectory(engine_components)
+add_subdirectory(resources)

@@ -14,7 +14,7 @@ namespace fce
     }
 
     // TO_DO Fonction de class
-    void centerMouse(HWND hwnd)
+    static void centerMouse(HWND hwnd)
     {
         RECT rect;
         GetClientRect(hwnd, &rect);

@@ -14,6 +14,7 @@ namespace fge
 namespace fgewa
 {
     class Device;
+    class Texture2D;
 
     class Light
     {
@@ -25,12 +26,13 @@ namespace fgewa
         Light() = default;
         ~Light();
 
-        Light(const Light&) = default;
-        Light& operator=(const Light&) = default;
-        Light(Light&&) = default;
-        Light& operator=(Light&&) = default;
+        Light(const Light&) = delete;
+        Light& operator=(const Light&) = delete;
+        Light(Light&& other);
+        Light& operator=(Light&& other);
         
         void initialize(shared_ptr<Device> device, const fge::Light& lightData);
+        void initializeHdri(shared_ptr<Device> device, const Texture2D& texture2D);
         void reset();
         ANARILight getHandle() noexcept;
         const ANARILight getHandle() const noexcept;

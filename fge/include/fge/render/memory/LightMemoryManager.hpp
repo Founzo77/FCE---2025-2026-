@@ -5,7 +5,7 @@
 #include "../../memory/CompactStackAllocator.hpp"
 #include "../../memory/IndexRange.hpp"
 
-#include <Windows.h>
+#include "../../PlatformWindows.hpp"
 #include <wrl/client.h>
 #include <d3d12.h>
 
@@ -35,7 +35,7 @@ namespace fge
 
     public:
         LightMemoryManager() = default;
-        ~LightMemoryManager() = default;
+        ~LightMemoryManager();
 
         void startInitialize(ComPtr<ID3D12Device5> device, 
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
@@ -43,6 +43,8 @@ namespace fge
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
         void endInitialize(ComPtr<ID3D12Device5> device, 
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
+
+        void reset();
 
         uint64_t getLightPageSize() const;
         uint64_t getNbMaxLights() const;

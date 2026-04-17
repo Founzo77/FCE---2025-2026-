@@ -1,9 +1,11 @@
 #include <fge/render/memory/InstanceMemoryManager.hpp>
 
 #include <fge/render/memory/MeshMemoryManager.hpp>
+#include <fge/render/memory/VolumeMemoryManager.hpp>
 
 #include <fge/render/data/Instance.hpp>
 #include <fge/render/data/Mesh.hpp>
+#include <fge/render/data/Volume.hpp>
 
 #include <fge/io/GlobalLogger.hpp>
 
@@ -11,6 +13,11 @@
 
 namespace fge
 {
+    InstanceMemoryManager::~InstanceMemoryManager()
+    {
+        reset();
+    }
+
     void InstanceMemoryManager::startInitialize()
     {
         m_instancesPool.initialize(getNbMaxInstances(), getInstancePageSize());
@@ -19,20 +26,22 @@ namespace fge
     }
 
     void InstanceMemoryManager::moveAllToDevice(ComPtr<ID3D12Device5> device, 
-        ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory)
+        ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory,
+        VolumeMemoryManager& volumeMemoryManager)
     {
         uint64_t instancesDescSize = sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * getNbInstances();
         m_instanceDescUploadBuffer.initialize(device, instancesDescSize * 5); // TO_DO : Changer
+        d12SetDebugName(m_instanceDescUploadBuffer.m_buffer, L"Instance Desc Upload Buffer");
 
-        updateInstanceDescUploadBuffer(device, meshMemory);
-        initializeTlas(device, directCommandList, meshMemory);
+        updateInstanceDescUploadBuffer(device, meshMemory, volumeMemoryManager);
+        initializeTlas(device, directCommandList);
 
         m_hastTlasTransformed = false;
         m_hasTlasSizeChanged = false;
     }
 
     void InstanceMemoryManager::initializeTlas(ComPtr<ID3D12Device5> device, 
-        ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory)
+        ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
         D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasInput = {};
         tlasInput.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
@@ -55,6 +64,8 @@ namespace fge
             D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
         m_tlasBuffer.initialize(device, tlasSize * 5, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
             D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+        d12SetDebugName(m_tlasBuffer.m_buffer, L"Tlas Buffer");
+        d12SetDebugName(m_scratchTlasBuffer.m_buffer, L"Scratch Tlas Buffer");
 
         D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_scratchTlasBuffer.getBuffer().Get(),
@@ -78,6 +89,27 @@ namespace fge
     void InstanceMemoryManager::endInitialize()
     {
         
+    }
+
+    void InstanceMemoryManager::reset()
+    {
+        m_instancesPool.reset();
+        
+        m_logicalIndexToPhysical.clear();
+        m_logicalIndexToPhysical.shrink_to_fit();
+
+        m_instanceDescUploadBuffer.reset();
+        m_tlasBuffer.reset();
+        m_scratchTlasBuffer.reset();
+
+        m_hastTlasTransformed = false;
+        m_hasTlasSizeChanged = false;
+
+        m_logicalIndexToPhysicalInstanceDesc.clear();
+        m_logicalIndexToPhysicalInstanceDesc.shrink_to_fit();
+        m_instanceDescPool.reset();
+        m_logicalInstancesUpdated.clear();
+        m_logicalInstancesUpdated.shrink_to_fit();
     }
 
     uint64_t InstanceMemoryManager::getInstancePageSize() const
@@ -117,30 +149,35 @@ namespace fge
     }
 
     void InstanceMemoryManager::updateDevice(ComPtr<ID3D12Device5> device, 
-        ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory)
+        ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory,
+        VolumeMemoryManager& volumeMemoryManager)
     {
         if(m_hasTlasSizeChanged)
         {
-            updateInstanceDescUploadBuffer(device, meshMemory);
+            updateInstanceDescUploadBuffer(device, meshMemory, volumeMemoryManager);
             updateResizedTlas(device, directCommandList);
             m_hasTlasSizeChanged = false;
             m_hastTlasTransformed = false;
         }
         else if(m_hastTlasTransformed)
         {
-            updateInstanceDescUploadBuffer(device, meshMemory);
+            updateInstanceDescUploadBuffer(device, meshMemory, volumeMemoryManager);
             updateTransformedTlas(directCommandList);
             m_hastTlasTransformed = false;
         }
     }
 
     void InstanceMemoryManager::updateInstanceDescUploadBuffer(ComPtr<ID3D12Device5> device, 
-        MeshMemoryManager& meshMemory)
+        MeshMemoryManager& meshMemory, VolumeMemoryManager& volumeMemoryManager)
     {
+        // TO_DO Utiliser des buffers upload different par rapport aux frames
+
         vector<D3D12_RAYTRACING_INSTANCE_DESC> instancesDesc;
         instancesDesc.resize(getNbInstances());
 
         uint32_t i = 0;
+
+        uint32_t nbSubMeshes = meshMemory.getNbSubMeshes();
 
         for(Instance& instance : iterateOverInstances())
         {
@@ -150,12 +187,25 @@ namespace fge
 
             instancesDesc[i].InstanceID = i;
             instancesDesc[i].InstanceMask = 0XFF;
-            const uint32_t meshIndex = instance.m_meshIndex;
-            instancesDesc[i].InstanceContributionToHitGroupIndex = 
-                meshMemory.get(meshIndex).m_subMeshFirstIndex;
-            instancesDesc[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
-            instancesDesc[i].AccelerationStructure =
-                meshMemory.get(instance.m_meshIndex).m_blasBuffer.getBuffer()->GetGPUVirtualAddress();
+            const uint32_t geometryIndex = instance.m_geometryReference.m_geometryIndex;
+
+            if(instance.m_geometryReference.m_type == GeometryType::TRIANGLES)
+            {
+                instancesDesc[i].InstanceContributionToHitGroupIndex = 
+                    meshMemory.get(geometryIndex).m_subMeshFirstIndex;
+                instancesDesc[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
+                instancesDesc[i].AccelerationStructure =
+                    meshMemory.get(geometryIndex).m_blasBuffer.getBuffer()->GetGPUVirtualAddress();
+            }
+            else if(instance.m_geometryReference.m_type == GeometryType::AABB)
+            {
+                instancesDesc[i].InstanceContributionToHitGroupIndex = 
+                    volumeMemoryManager.get(geometryIndex).m_sbtBaseIndex + nbSubMeshes;
+                instancesDesc[i].Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
+                instancesDesc[i].AccelerationStructure =
+                    volumeMemoryManager.get(geometryIndex).
+                    m_blasBuffer.getBuffer()->GetGPUVirtualAddress();
+            }
 
             i++;
         }

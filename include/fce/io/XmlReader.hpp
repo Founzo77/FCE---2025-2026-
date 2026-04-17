@@ -12,6 +12,10 @@
 #include "../objects/scripts/ZombieComponent.hpp"
 #include "../objects/scripts/CameraManagerComponent.hpp"
 #include "../objects/scripts/PlayerManagerComponent.hpp"
+#include "../objects/scripts/BulletComponent.hpp"
+#include "../objects/scripts/ShooterComponent.hpp"
+#include "../objects/scripts/ParticleComponent.hpp"
+#include "../objects/scripts/ParticleGeneratorComponent.hpp"
 #include "../objects/scripts/DebugPositionComponent.hpp"
 
 #include <fge/io/XmlReader.hpp>
@@ -51,6 +55,10 @@ namespace fce
         ZombieComponent loadZombieComponent(tinyxml2::XMLElement& root);
         CameraManagerComponent loadCameraManagerComponent(tinyxml2::XMLElement& root);
         PlayerManagerComponent loadPlayerManagerComponent(tinyxml2::XMLElement& root);
+        BulletComponent loadBulletComponent(tinyxml2::XMLElement& root);
+        ShooterComponent loadShooterComponent(tinyxml2::XMLElement& root);
+        ParticleComponent loadParticleComponent(tinyxml2::XMLElement& root);
+        ParticleGeneratorComponent loadParticleGeneratorComponent(tinyxml2::XMLElement& root);
         DebugPositionComponent loadDebugPositionComponent(tinyxml2::XMLElement& root);
     };
 }

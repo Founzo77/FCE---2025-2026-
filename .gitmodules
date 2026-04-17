@@ -1,3 +1,19 @@
+[submodule "external/cpp-httplib"]
+	path = external/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib
+
+[submodule "external/json"]
+	path = external/json
+	url = https://github.com/nlohmann/json
+
 [submodule "fge/external/DirectXTex"]
 	path = fge/external/DirectXTex
 	url = https://github.com/microsoft/DirectXTex.git
+
+[submodule "fge/external/tinyxml2"]
+	path = fge/external/tinyxml2
+	url = https://github.com/leethomason/tinyxml2
+
+[submodule "fge/external/imgui"]
+	path = fge/external/imgui
+	url = https://github.com/ocornut/imgui

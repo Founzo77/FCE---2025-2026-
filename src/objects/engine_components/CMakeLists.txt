@@ -1,4 +1,5 @@
 
 target_sources(fce PRIVATE
     CameraComponent.cpp
-    TransformComponent.cpp)
+    TransformComponent.cpp
+    RenderComponent.cpp)

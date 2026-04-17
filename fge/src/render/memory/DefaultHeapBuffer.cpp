@@ -6,6 +6,11 @@
 
 namespace fge
 {
+    DefaultHeapBuffer::~DefaultHeapBuffer()
+    {
+        reset();
+    }
+
     void DefaultHeapBuffer::initialize(ComPtr<ID3D12Device5> device, uint64_t totalSize,
         D3D12_HEAP_FLAGS heapFlag)
     {
@@ -47,5 +52,15 @@ namespace fge
 
         m_offsets.push_back(offset);
         m_buffers.push_back(placedResource);
+    }
+
+    void DefaultHeapBuffer::reset()
+    {
+        m_totalSize = 0;
+        m_offsets.clear();
+        m_offsets.shrink_to_fit();
+        m_heap.Reset();
+        m_buffers.clear();
+        m_buffers.shrink_to_fit();
     }
 }

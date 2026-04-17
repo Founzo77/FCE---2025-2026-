@@ -24,8 +24,11 @@ namespace fge
         CompactStackAllocator();
         CompactStackAllocator(const CompactStackAllocator& other);
         CompactStackAllocator(CompactStackAllocator&& other);
+        ~CompactStackAllocator();
 
         void initialize(uint64_t nbMaxElements, uint64_t strideSize);
+
+        void reset();
 
         inline uint8_t* getBuffer()
         {

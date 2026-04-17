@@ -2,6 +2,8 @@
 
 #include "indices.hpp"
 
+#include <cstdint>
+
 namespace fge
 {
     class Light;
@@ -30,5 +32,12 @@ namespace fge
         virtual void rotateCamera(float x, float y) = 0;
 
         virtual void setCamera(const Camera& camera) = 0;
+
+        virtual uint32_t getNbMaxMeshes() = 0;
+        virtual uint32_t getNbMaxSubMeshes() = 0;
+        virtual uint32_t getNbMaxInstances() = 0;
+        virtual uint32_t getNbMaxMaterials() = 0;
+        virtual uint32_t getNbMaxTextures() = 0;
+        virtual uint32_t getNbMaxLights() = 0;
     };
 }

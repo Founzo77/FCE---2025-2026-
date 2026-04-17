@@ -5,20 +5,23 @@
 #include <wrl/client.h>
 #include <d3d12.h>
 
+#include <vector>
+
+using std::vector;
+
 using namespace Microsoft::WRL;
 
 namespace fge
 {
     class CbvSrvUavView;
     class SceneMemoryManager;
+    class SceneMemoryManager;
+    class ShaderBank;
 
     class SbtTable
     {
     private:
         UploadBuffer m_sbtBuffer;
-        void* m_rayGenShaderIdentifier;
-        void* m_missShaderIdentifier;
-        void* m_hitGroupIdentifier;
 
         uint32_t m_shaderIdentifierSize;
         uint32_t m_shaderTableSize;
@@ -29,8 +32,7 @@ namespace fge
         SbtTable() = default;
         ~SbtTable() = default;
 
-        void initialize(ComPtr<ID3D12Device5> device, void* rayGenShaderIdentifier, 
-            void* missShaderIdentifier, void* hitGroupIdentifier,
+        void initialize(ComPtr<ID3D12Device5> device, ShaderBank& shaderBank,
             const CbvSrvUavView& handleView, const SceneMemoryManager& sceneMemory);
 
         D3D12_GPU_VIRTUAL_ADDRESS_RANGE getRaygenerationShaderRecord();

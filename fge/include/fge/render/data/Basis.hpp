@@ -171,4 +171,29 @@ namespace fge
             return basis;
         }
     };
+
+    inline bool floatEqual(float a, float b, float eps = 1e-5f)
+    {
+        return fabs(a - b) < eps;
+    }
+
+    inline bool float3Equal(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b, float eps = 1e-5f)
+    {
+        return floatEqual(a.x, b.x, eps) &&
+            floatEqual(a.y, b.y, eps) &&
+            floatEqual(a.z, b.z, eps);
+    }
+
+    inline bool operator==(const Basis& lhs, const Basis& rhs)
+    {
+        return float3Equal(lhs.m_forward, rhs.m_forward) &&
+            float3Equal(lhs.m_up, rhs.m_up) &&
+            float3Equal(lhs.m_right, rhs.m_right) &&
+            float3Equal(lhs.m_scale, rhs.m_scale);
+    }
+
+    inline bool operator!=(const Basis& lhs, const Basis& rhs)
+    {
+        return !(lhs == rhs);
+    }
 }

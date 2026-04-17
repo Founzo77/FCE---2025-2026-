@@ -7,7 +7,7 @@
 #include "../../memory/SafePageBasedAllocator.hpp"
 #include "../../memory/SlotAllocator.hpp"
 
-#include <Windows.h>
+#include "../../PlatformWindows.hpp"
 #include <wrl/client.h>
 #include <d3d12.h>
 
@@ -33,7 +33,7 @@ namespace fge
 
     public:
         MeshMemoryManager() = default;
-        ~MeshMemoryManager() = default;
+        ~MeshMemoryManager();
 
         void startInitialize(ComPtr<ID3D12Device5> device, 
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
@@ -41,6 +41,8 @@ namespace fge
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
         void endInitialize(ComPtr<ID3D12Device5> device, 
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
+
+        void reset();
 
         uint64_t getMeshPageSize() const;
         uint64_t getSubMeshDataPageSize() const;

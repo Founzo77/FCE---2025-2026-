@@ -17,10 +17,10 @@ namespace fge
 
     public:
         DefaultDeviceBuffer() = default;
-        ~DefaultDeviceBuffer() = default;
+        ~DefaultDeviceBuffer();
 
-        DefaultDeviceBuffer(const DefaultDeviceBuffer&) = default;
-        DefaultDeviceBuffer& operator=(const DefaultDeviceBuffer&) = default;
+        DefaultDeviceBuffer(const DefaultDeviceBuffer&) = delete;
+        DefaultDeviceBuffer& operator=(const DefaultDeviceBuffer&) = delete;
         DefaultDeviceBuffer(DefaultDeviceBuffer&&) = default;
         DefaultDeviceBuffer& operator=(DefaultDeviceBuffer&&) = default;
 
@@ -30,6 +30,8 @@ namespace fge
         void reallocate(ComPtr<ID3D12Device5> device, uint64_t size, 
             D3D12_RESOURCE_FLAGS resourceFlag, 
             D3D12_RESOURCE_STATES initialResourceState = D3D12_RESOURCE_STATE_COMMON);
+
+        void reset();
 
         inline uint64_t getSize() const noexcept { return m_size; }
         inline ComPtr<ID3D12Resource> getBuffer() noexcept { return m_buffer; }

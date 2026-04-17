@@ -1,6 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <scene>
+    <!--
+    <render_config type="fge"/>
+
+    <render_config type="anari" library="helide" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visrtx" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+    <render_config type="anari" library="visrtx" algorithm="raycast" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="barney" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visionaray" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visionaray_cuda" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="fgeia" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="cycles" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+    -->
+
+    <render_config type="fge" integrator="pathtracer" spp="1" compute_frames="3" render_frames="3"/>
+
+    <!--
+    <background texture_path="scene/background/golden_gate_hills_4k.png"/>
+    -->
+    <background texture_path="scene/background/golden_gate_hills_4k.png"/>
+    
     <perspective_camera depth="0.3" width="1" height="1" size_pixel="0.1">
         <origin x="-5.74365" y="5.44444" z="-1.40559"/>
         <forward x="0.940233" y="0" z="-0.340532"/>
@@ -8,30 +50,181 @@
     </perspective_camera>
 
     <meshes>
-        <include id="0" path="scene/bugati/obj/car.obj" scale="1">
+        <include id="0" path="scene/bugati/obj/car.obj" scale="1"
+            hit_group="DiffuseHitGroup">
             <translation x="0" y="0" z="0"/>
             <rotation x="0" y="0" z="0"/>
         </include>
 
-        <include id="2" path="scene/floor/floor.obj" scale="50">
+        <include id="2" path="scene/floor/floor.obj" scale="50"
+            hit_group="DiffuseHitGroup">
             <translation x="0" y="0" z="0"/>
             <rotation x="0" y="0" z="0"/>
         </include>
 
-        <include id="3" path="scene/garage/Garage.obj" scale="1">
+        <include id="3" path="scene/garage/Garage.obj" scale="1"
+            hit_group="DiffuseHitGroup">
             <translation x="0" y="0" z="0"/>
             <rotation x="0" y="0" z="0"/>
         </include>
 
-        <include id="4" path="scene/mirror/mirror_face.obj" scale="0.8">
+        <include id="4" path="scene/mirror/mirror_face.obj" scale="0.8"
+            hit_group="DiffuseHitGroup">
             <translation x="0" y="0" z="0"/>
             <rotation x="0" y="0" z="0"/>
         </include>
-        <include id="5" path="scene/mirror/mirror_deco.obj" scale="0.8">
+        <include id="5" path="scene/mirror/mirror_deco.obj" scale="0.8"
+            hit_group="DiffuseHitGroup">
             <translation x="0" y="0" z="0"/>
             <rotation x="0" y="0" z="0"/>
+        </include>
+        <include id="6" path="scene/bullet/bullet.obj" scale="2"
+            hit_group="DiffuseHitGroup">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="80" z="0"/>
         </include>
     </meshes>
+
+    <volumes>
+        <!--
+        transfert_function_path=""
+        transfert_function_path="scene/volumes/transfer_function_ct.png"
+        transfert_function_path="scene/volumes/transfer_function_ct_advanced_0.png"
+        transfert_function_path="scene/volumes/transfer_function_ct_advanced_1.png"
+        transfert_function_path="scene/volumes/transfer_function_ct_advanced_2.png"
+        transfert_function_path="scene/volumes/transfer_function_invisible.png"
+        transfert_function_path="scene/volumes/transfer_function_bi.png"
+        -->
+
+        <include id="0" path="scene/volumes/cthead/CThead_16bit_256x256x113.raw"
+            is_little_endian="false" format="16_bits_integers" 
+            width="256" height="256" depth="113"
+            transfert_function_path=""
+            scalar_scale="2"
+            hit_group="DvrHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+
+        <include id="1" path="scene/volumes/ct_stanford_bunny/CT-Stanford-Bunny_8bit_512_512_361.raw"
+            is_little_endian="false" format="8_bits_integers" 
+            width="512" height="512" depth="360"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="IsosurfaceHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+
+        <include id="2" path="scene/volumes/mrbrain/MRbrain_16bit_256x256x109.raw"
+            is_little_endian="false" format="16_bits_integers" 
+            width="256" height="256" depth="109"
+            transfert_function_path="scene/volumes/transfer_function_ct_advanced_0.png"
+            hit_group="DvrHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+
+        <include id="3" path="scene/volumes/cafard/cafard_u16bit_832x832x494.raw"
+            is_little_endian="true" format="16_bits_integers" 
+            width="832" height="832" depth="494"
+            transfert_function_path="scene/volumes/cafard/transfer_function.png"
+            scalar_scale="1"
+            scalar_min="0" scalar_max="4096"
+            hit_group="DvrMinHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="2.96"/>
+        </include>
+
+        <!--
+        <include id="4" path="scene/volumes/quantum/gaussian_sphere.cube"
+            is_little_endian="true" format="32_bits_float" 
+            width="64" height="64" depth="64"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="IsosurfaceHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+        -->
+
+        <!--
+        203 -> 5
+
+        202 -> 4.97
+        349 -> 8.59
+        
+        <include id="4" path="scene/volumes/quantum/mo_energy_0.cube"
+            is_little_endian="true" format="32_bits_float" 
+            width="203" height="202" depth="349"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="IsosurfaceHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="4.97" z="8.59"/>
+        </include>
+
+        <include id="4" path="scene/volumes/quantum/gaussian_ellipsoide_negatif.cube"
+            is_little_endian="true" format="32_bits_float" 
+            width="64" height="64" depth="64"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="IsosurfaceHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+        -->
+
+        <include id="4" path="scene/volumes/quantum/mo_energy_0.cube"
+            is_little_endian="true" format="32_bits_float" 
+            width="203" height="202" depth="349"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="InvisibleVolumeHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="4.97" z="8.59"/>
+        </include>
+
+        <include id="5" path="scene/volumes/empty/empty_4x4x4_uint8.raw"
+            is_little_endian="true" format="8_bits_integers" 
+            width="4" height="4" depth="4"
+            transfert_function_path=""
+            scalar_scale="1"
+            hit_group="ParticleHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="1" y="1" z="1"/>
+        </include>
+
+        <include id="6" path="scene/volumes/aneurism/aneurism.raw"
+            is_little_endian="true" format="8_bits_integers" 
+            width="256" height="256" depth="256"
+            transfert_function_path="scene/volumes/aneurism/transfer_function.png"
+            scalar_scale="1"
+            hit_group="DvrHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+
+        <include id="7" path="scene/volumes/bonsai/bonsai.raw"
+            is_little_endian="true" format="8_bits_integers" 
+            width="256" height="256" depth="128"
+            transfert_function_path="scene/volumes/bonsai/transfer_function.png"
+            scalar_scale="1"
+            hit_group="DvrHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="2.5"/>
+        </include>
+
+        <include id="8" path="scene/volumes/mr_head/mr_head.raw"
+            is_little_endian="true" format="8_bits_integers" 
+            width="256" height="256" depth="256"
+            transfert_function_path="scene/volumes/mr_head/transfer_function.png"
+            scalar_scale="1"
+            hit_group="DvrHitGroup">
+            <volume_min x="0" y="0" z="0"/>
+            <volume_max x="5" y="5" z="5"/>
+        </include>
+    </volumes>
 
     <game_objects render_camera_id="0">
         <game_object id="0" name="main_camera">
@@ -46,6 +239,9 @@
                 <radiance x="0" y="0" z="0"/>
             </light_point>
 
+            <shooter bullet_mesh_id="6">
+                <bullet bullet_speed="5" life_time="2" />
+            </shooter>
             <debug_position/>
         </game_object>
 
@@ -56,7 +252,7 @@
                 <scale x="1" y="1" z="1"/>
             </transform>
 
-            <render mesh_id="2"/>
+            <render geometry_id="2" type="surface"/>
         </game_object>
 
         <game_object id="2" name="light_0">
@@ -114,7 +310,7 @@
                 <scale x="1" y="1" z="1"/>
             </transform>
 
-            <render mesh_id="0"/>
+            <render geometry_id="0" type="surface"/>
         </game_object>
 
         <game_object id="7" name="garage">
@@ -124,7 +320,7 @@
                 <scale x="1" y="1" z="1"/>
             </transform>
 
-            <render mesh_id="3"/>
+            <render geometry_id="3" type="surface"/>
         </game_object>
 
         <game_object id="8" name="camera_third_view_car">
@@ -141,9 +337,9 @@
         </game_object>
 
         <game_object id="9" name="player_camera_manager">
-            <player_manager player_game_object_ids="0 6"
+            <player_manager player_game_object_ids="0 6 19"
                 move_speed="2.5" rotate_speed="1" acceleration="4"/>
-            <camera_manager camera_game_object_ids="0 8" />
+            <camera_manager camera_game_object_ids="0 8 25" />
         </game_object>
 
         <game_object id="10" name="mirror_face">
@@ -152,7 +348,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="4"/>
+            <render geometry_id="4" type="surface"/>
         </game_object>
         <game_object id="11" name="mirror_deco">
             <transform>
@@ -160,7 +356,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="5"/>
+            <render geometry_id="5" type="surface"/>
         </game_object>
 
         <game_object id="12" name="mirror_face">
@@ -169,7 +365,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="4"/>
+            <render geometry_id="4" type="surface"/>
         </game_object>
         <game_object id="13" name="mirror_deco">
             <transform>
@@ -177,7 +373,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="5"/>
+            <render geometry_id="5" type="surface"/>
         </game_object>
         
         <game_object id="14" name="mirror_face">
@@ -186,7 +382,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="4"/>
+            <render geometry_id="4" type="surface"/>
         </game_object>
         <game_object id="15" name="mirror_deco">
             <transform>
@@ -194,7 +390,7 @@
                 <rotation x="0" y="90" z="0"/>
                 <scale x="1" y="1" z="1"/>
             </transform>
-            <render mesh_id="5"/>
+            <render geometry_id="5" type="surface"/>
         </game_object>
 
 
@@ -204,7 +400,7 @@
                 <rotation x="0" y="-90" z="0"/>
                 <scale x="2" y="1" z="1"/>
             </transform>
-            <render mesh_id="4"/>
+            <render geometry_id="4" type="surface"/>
         </game_object>
         <game_object id="17" name="mirror_deco_opposite">
             <transform>
@@ -212,7 +408,121 @@
                 <rotation x="0" y="-90" z="0"/>
                 <scale x="2" y="1" z="1"/>
             </transform>
-            <render mesh_id="5"/>
+            <render geometry_id="5" type="surface"/>
+        </game_object>
+
+        <game_object id="18" name="bullet_static">
+            <transform>
+                <translation x="0" y="2" z="5"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="6" type="surface"/>
+        </game_object>
+
+        <game_object id="19" name="volumique_head">
+            <transform>
+                <translation x="0" y="0.2" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="0" type="volume"/>
+
+            <camera depth="0.3" width="1" height="1"/>
+            <third_view_player camera_game_object_id="8" mesh_game_object_id="6"
+                mouse_sensitivity="2.5" min_distance="2.0" max_distance="12" 
+                height_offset="2" side_offset="1.6"/>
+        </game_object>
+
+        <game_object id="20" name="volumique_bunny">
+            <transform>
+                <translation x="-7" y="0" z="13"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="1" type="volume"/>
+        </game_object>
+
+        <game_object id="21" name="volumique_brain">
+            <transform>
+                <translation x="0" y="0" z="13"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="2" type="volume"/>
+        </game_object>
+
+        <game_object id="22" name="volumique_cafard">
+            <transform>
+                <translation x="7" y="0" z="13"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="3" type="volume"/>
+        </game_object>
+
+        <game_object id="23" name="volumique_quantum">
+            <transform>
+                <translation x="0" y="0" z="20"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="4" type="volume"/>
+        </game_object>
+
+        <game_object id="24" name="particle_generator">
+            <transform>
+                <translation x="7" y="0" z="20"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="5" type="volume"/>
+
+            <!--
+            <particle_generator particle_volume_id="5" generate_frequency="0.1">
+                <particle particle_speed="7" life_time="3.5" />
+            </particle_generator>
+            -->
+        </game_object>
+
+        <game_object id="25" name="head_third_view_car">
+            <transform>
+                <translation x="0" y="0" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <camera depth="0.3" width="1" height="1"/>
+            <third_view_player camera_game_object_id="25" mesh_game_object_id="19"
+                mouse_sensitivity="2.5" min_distance="2.0" max_distance="12" 
+                height_offset="2" side_offset="1.6"/>
+        </game_object>
+
+        <game_object id="26" name="volumique_aneurism">
+            <transform>
+                <translation x="7" y="0" z="28"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="6" type="volume"/>
+        </game_object>
+
+        <game_object id="27" name="volumique_bonsai">
+            <transform>
+                <translation x="7" y="0" z="34"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="7" type="volume"/>
+        </game_object>
+
+        <game_object id="28" name="volumique_mr_head">
+            <transform>
+                <translation x="7" y="0" z="40"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+            <render geometry_id="8" type="volume"/>
         </game_object>
     </game_objects>
 

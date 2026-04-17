@@ -26,8 +26,11 @@ namespace fge
         SafePageBasedAllocator();
         SafePageBasedAllocator(const SafePageBasedAllocator& other);
         SafePageBasedAllocator(SafePageBasedAllocator&& other);
+        ~SafePageBasedAllocator();
 
         void initialize(uint64_t nbMaxElements, uint64_t strideSize);
+
+        void reset();
 
         inline uint8_t* getBuffer()
         {
@@ -89,10 +92,11 @@ namespace fge
             using reference = T&;
 
             OccupiedElementIterator(const vector<bool>* bitmap,
-                                    uint64_t start, uint64_t upper,
-                                    uint64_t toEmit, uint8_t* base, uint64_t stride)
-                : m_bitmap(bitmap), m_idx(start), m_max(upper),
-                m_emitted(0), m_toEmit(toEmit), m_base(base), m_stride(stride)
+                                    uint64_t start,
+                                    uint64_t upper,
+                                    uint8_t* base,
+                                    uint64_t stride)
+                : m_bitmap(bitmap), m_idx(start), m_max(upper), m_base(base), m_stride(stride)
             {
                 advance_to_next_allocated();
             }
@@ -101,34 +105,43 @@ namespace fge
                 return *reinterpret_cast<T*>(m_base + m_idx * m_stride);
             }
 
+            pointer operator->() const {
+                return reinterpret_cast<T*>(m_base + m_idx * m_stride);
+            }
+
             OccupiedElementIterator& operator++() {
-                ++m_emitted;
-                if (m_emitted >= m_toEmit) { make_end(); return *this; }
                 ++m_idx;
                 advance_to_next_allocated();
                 return *this;
             }
 
             bool operator==(const OccupiedElementIterator& other) const {
-                return m_bitmap==other.m_bitmap && m_idx==other.m_idx &&
-                    m_max==other.m_max && m_emitted==other.m_emitted &&
-                    m_toEmit==other.m_toEmit && m_base==other.m_base &&
-                    m_stride==other.m_stride;
+                return m_bitmap == other.m_bitmap &&
+                    m_idx == other.m_idx &&
+                    m_max == other.m_max &&
+                    m_base == other.m_base &&
+                    m_stride == other.m_stride;
             }
-            bool operator!=(const OccupiedElementIterator& other) const { return !(*this==other); }
+
+            bool operator!=(const OccupiedElementIterator& other) const {
+                return !(*this == other);
+            }
 
         private:
-            const vector<bool>* m_bitmap;
-            uint64_t m_idx, m_max, m_emitted, m_toEmit;
-            uint8_t* m_base;
-            uint64_t m_stride;
+            const vector<bool>* m_bitmap{nullptr};
+            uint64_t m_idx{0};
+            uint64_t m_max{0};
+            uint8_t* m_base{nullptr};
+            uint64_t m_stride{0};
 
-            void make_end() { m_idx = m_max; m_emitted = m_toEmit; }
             void advance_to_next_allocated() {
-                if (!m_bitmap) { make_end(); return; }
-                if (m_emitted >= m_toEmit) { make_end(); return; }
-                while (m_idx < m_max && (*m_bitmap)[m_idx] == false) ++m_idx;
-                if (m_idx >= m_max) make_end();
+                if (!m_bitmap) {
+                    m_idx = m_max;
+                    return;
+                }
+
+                while (m_idx < m_max && !(*m_bitmap)[m_idx])
+                    ++m_idx;
             }
         };
     
@@ -142,44 +155,51 @@ namespace fge
 
         template<class T>
         OccupiedElementRange<T> occupiedElements() {
-            throwIfFailed(m_nbMaxElements>0, "occupiedElements: not initialized");
+            throwIfFailed(m_nbMaxElements > 0, "occupiedElements: not initialized");
             using Iter = OccupiedElementIterator<T>;
-            Iter b(&m_occupancyBitmap, 0, m_nbMaxElements, m_nbElements, 
-                m_buffer.data(), m_strideSize);
-            Iter e(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements, 
-                m_nbElements, m_buffer.data(), m_strideSize);
-            return { b, e };
+            return {
+                Iter(&m_occupancyBitmap, 0, m_nbMaxElements, m_buffer.data(), m_strideSize),
+                Iter(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements, m_buffer.data(), m_strideSize)
+            };
+        }
+
+        template<class T>
+        OccupiedElementRange<const T> occupiedElements() const {
+            throwIfFailed(m_nbMaxElements > 0, "occupiedElements: not initialized");
+            using Iter = OccupiedElementIterator<const T>;
+            return {
+                Iter(&m_occupancyBitmap, 0, m_nbMaxElements,
+                    const_cast<uint8_t*>(m_buffer.data()), m_strideSize),
+                Iter(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements,
+                    const_cast<uint8_t*>(m_buffer.data()), m_strideSize)
+            };
         }
 
     private:
         template<class T>
         struct IndexedElement {
-            uint32_t index;  // physical index
+            uint32_t index;
             T& value;
 
-            T& operator*()  const { return *value; }
-            T* operator->() const { return value; }
+            T& operator*() const { return value; }
+            T* operator->() const { return &value; }
         };
 
         template<class T>
         class IndexedOccupiedElementIterator {
         public:
-            using RawT = std::remove_const_t<T>;
             using Elem = IndexedElement<T>;
 
             using iterator_category = std::forward_iterator_tag;
-            using value_type        = Elem;
-            using reference         = Elem;
+            using value_type = Elem;
+            using reference = Elem;
 
-            IndexedOccupiedElementIterator(
-                const vector<bool>* bitmap,
-                uint64_t start, uint64_t upper,
-                uint64_t toEmit,
-                uint8_t* base,
-                uint64_t stride)
-                : m_bitmap(bitmap), m_idx(start), m_max(upper),
-                m_emitted(0), m_toEmit(toEmit),
-                m_base(base), m_stride(stride)
+            IndexedOccupiedElementIterator(const vector<bool>* bitmap,
+                                        uint64_t start,
+                                        uint64_t upper,
+                                        uint8_t* base,
+                                        uint64_t stride)
+                : m_bitmap(bitmap), m_idx(start), m_max(upper), m_base(base), m_stride(stride)
             {
                 advance();
             }
@@ -190,31 +210,38 @@ namespace fge
             }
 
             IndexedOccupiedElementIterator& operator++() {
-                ++m_emitted;
-                if (m_emitted >= m_toEmit) { end(); return *this; }
                 ++m_idx;
                 advance();
                 return *this;
             }
 
             bool operator==(const IndexedOccupiedElementIterator& other) const {
-                return m_idx == other.m_idx && m_base == other.m_base;
+                return m_bitmap == other.m_bitmap &&
+                    m_idx == other.m_idx &&
+                    m_max == other.m_max &&
+                    m_base == other.m_base &&
+                    m_stride == other.m_stride;
             }
+
             bool operator!=(const IndexedOccupiedElementIterator& other) const {
                 return !(*this == other);
             }
 
         private:
-            const vector<bool>* m_bitmap;
-            uint64_t m_idx, m_max, m_emitted, m_toEmit;
-            uint8_t* m_base;
-            uint64_t m_stride;
+            const vector<bool>* m_bitmap{nullptr};
+            uint64_t m_idx{0};
+            uint64_t m_max{0};
+            uint8_t* m_base{nullptr};
+            uint64_t m_stride{0};
 
-            void end() { m_idx = m_max; }
             void advance() {
-                while (m_idx < m_max && (*m_bitmap)[m_idx] == false)
+                if (!m_bitmap) {
+                    m_idx = m_max;
+                    return;
+                }
+
+                while (m_idx < m_max && !(*m_bitmap)[m_idx])
                     ++m_idx;
-                if (m_idx >= m_max) end();
             }
         };
 
@@ -228,22 +255,24 @@ namespace fge
 
         template<class T>
         IndexedOccupiedElementRange<T> indexedOccupiedElements() {
+            throwIfFailed(m_nbMaxElements > 0, "indexedOccupiedElements: not initialized");
             using Iter = IndexedOccupiedElementIterator<T>;
-            Iter b(&m_occupancyBitmap, 0, m_nbMaxElements, m_nbElements,
-                m_buffer.data(), m_strideSize);
-            Iter e(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements, m_nbElements,
-                m_buffer.data(), m_strideSize);
-            return { b, e };
+            return {
+                Iter(&m_occupancyBitmap, 0, m_nbMaxElements, m_buffer.data(), m_strideSize),
+                Iter(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements, m_buffer.data(), m_strideSize)
+            };
         }
 
         template<class T>
         IndexedOccupiedElementRange<const T> indexedOccupiedElements() const {
+            throwIfFailed(m_nbMaxElements > 0, "indexedOccupiedElements: not initialized");
             using Iter = IndexedOccupiedElementIterator<const T>;
-            Iter b(&m_occupancyBitmap, 0, m_nbMaxElements, m_nbElements,
-                const_cast<uint8_t*>(m_buffer.data()), m_strideSize);
-            Iter e(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements, m_nbElements,
-                const_cast<uint8_t*>(m_buffer.data()), m_strideSize);
-            return { b, e };
+            return {
+                Iter(&m_occupancyBitmap, 0, m_nbMaxElements,
+                    const_cast<uint8_t*>(m_buffer.data()), m_strideSize),
+                Iter(&m_occupancyBitmap, m_nbMaxElements, m_nbMaxElements,
+                    const_cast<uint8_t*>(m_buffer.data()), m_strideSize)
+            };
         }
     };
 }

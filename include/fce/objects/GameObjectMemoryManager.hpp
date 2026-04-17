@@ -29,7 +29,7 @@ namespace fce
 
         PageBasedAllocator::OccupiedElementRange<GameObject> iterateOverGameObjects();
 
-        PhysicalIndex add(GameObject&& gameObject, const LogicalIndex gameObjectIndex);
+        PhysicalIndex add(GameObject&& gameObject);
         void free(const LogicalIndex gameObjectIndex);
     };
 }

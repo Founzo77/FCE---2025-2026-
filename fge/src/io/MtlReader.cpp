@@ -7,16 +7,10 @@
 
 namespace fge
 {
-    MtlReader::MtlReader(const string& pathFile)
-    {
-        MtlReader::read(pathFile, m_materials, m_texturePathFiles, m_nameMaterialToTextureIndex,
-            m_pathTextureToTextureIndex, m_nameMaterialToMaterialIndex);
-    }
-
     void MtlReader::read(const string& pathFile, vector<Material>& materials, 
-        vector<string>& texturePathFiles, 
-        unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
-        unordered_map<string, uint32_t>& pathTextureToTextureIndex,
+        concurrent_vector<string>& texturePathFiles,
+        concurrent_unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
+        concurrent_unordered_map<string, uint32_t>& pathTextureToTextureIndex,
         unordered_map<string, uint32_t>& nameMaterialToMaterialIndex)
     {
         globalLogger().debug() << "Loading MTL file: " << pathFile;
@@ -43,8 +37,13 @@ namespace fge
                 fileStream >> currentMat;
 
                 Material material;
-                uint32_t materialIndex = static_cast<uint32_t>(materials.size());
-                materials.push_back(material);
+
+                uint32_t materialIndex;
+                #pragma omp critical
+                {
+                    materialIndex = static_cast<uint32_t>(materials.size());
+                    materials.push_back(material);
+                }
 
                 nameMaterialToMaterialIndex[currentMat] = materialIndex;
             }

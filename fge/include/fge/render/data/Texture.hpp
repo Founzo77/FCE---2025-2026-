@@ -22,6 +22,7 @@ namespace fge
         UploadBuffer m_uploadBuffer;
 
         Texture() = default;
+        ~Texture();
         
         Texture(const Texture&) = delete;
         Texture(Texture&&) = default;
@@ -30,5 +31,11 @@ namespace fge
         Texture& operator=(Texture&&) = default;
 
         void initialize(const string& texturePathFile);
+        void initializeFromDDS(const string& texturePathFile);
+        void initializeFromRawTexture2D(const void* data, 
+            uint32_t width, uint32_t height, DXGI_FORMAT format);
+        void initializeFromRawVolume(const void* data, 
+            uint32_t width, uint32_t height, uint32_t depth, DXGI_FORMAT format);
+        void reset();
     };
 }

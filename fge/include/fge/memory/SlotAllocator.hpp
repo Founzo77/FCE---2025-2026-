@@ -18,8 +18,11 @@ namespace fge
         SlotAllocator();
         SlotAllocator(const SlotAllocator& other);
         SlotAllocator(SlotAllocator&& other);
+        ~SlotAllocator();
 
         void initialize(uint64_t nbMaxElements);
+
+        void reset();
 
         inline uint64_t getNbMaxElements() const noexcept 
             { return m_nbMaxElements; }

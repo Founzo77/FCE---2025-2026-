@@ -2,7 +2,7 @@
 
 #include "Application.hpp"
 
-#include <Windows.h>
+#include <fge/PlatformWindows.hpp>
 
 #include <string>
 
@@ -19,7 +19,6 @@ namespace fce
         uint32_t m_height;
         string m_pathFileScene;
         bool m_isInit;
-        bool m_keys[256] = {};
         Application m_application;
         bool m_isMouseLocked = true;
 

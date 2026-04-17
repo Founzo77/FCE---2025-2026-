@@ -3,6 +3,8 @@
 
 #include <fce/objects/GameObject.hpp>
 
+#include <fge/render/data/GeometryReference.hpp>
+
 #include <algorithm>
 
 using fge::globalLogger;
@@ -10,6 +12,8 @@ using fge::Instance;
 using fge::Light;
 using fge::Transform;
 using fge::Basis;
+using fge::GeometryReference;
+using fge::GeometryType;
 
 namespace fce
 {
@@ -89,7 +93,7 @@ namespace fce
                     renderComponent.m_instanceIndex = instanceId;
 
                     Instance instance;
-                    instance.m_meshIndex = renderComponent.m_meshIndex.m_index;
+                    instance.m_geometryReference = renderComponent.m_geometryReference;
                     instance.m_transform = transformComponent.getTransform().worldMatrix();
 
                     m_renderReader->m_sceneDescription.m_instances.insert(
@@ -184,6 +188,53 @@ namespace fce
                     scripts.insert({ ScriptComponentType::PLAYER_MANAGER, std::move(list) });
                 }
 
+                tinyxml2::XMLElement* bulletElement = 
+                    gameObject->FirstChildElement("bullet");
+                if(bulletElement)
+                {
+                    BulletComponent bulletComponent = 
+                        loadBulletComponent(*bulletElement);
+                    vector<std::unique_ptr<ScriptComponent>> list;
+                    list.push_back(
+                        std::make_unique<BulletComponent>(bulletComponent));
+                    scripts.insert({ ScriptComponentType::BULLET, std::move(list) });
+                }
+
+                tinyxml2::XMLElement* shooterElement = 
+                    gameObject->FirstChildElement("shooter");
+                if(shooterElement)
+                {
+                    ShooterComponent shooterComponent = 
+                        loadShooterComponent(*shooterElement);
+                    vector<std::unique_ptr<ScriptComponent>> list;
+                    list.push_back(
+                        std::make_unique<ShooterComponent>(shooterComponent));
+                    scripts.insert({ ScriptComponentType::SHOOTER, std::move(list) });
+                }
+
+                tinyxml2::XMLElement* particleElement = 
+                    gameObject->FirstChildElement("particle");
+                if(particleElement)
+                {
+                    ParticleComponent particleComponent = loadParticleComponent(*particleElement);
+                    vector<std::unique_ptr<ScriptComponent>> list;
+                    list.push_back(
+                        std::make_unique<ParticleComponent>(particleComponent));
+                    scripts.insert({ ScriptComponentType::PARTICLE, std::move(list) });
+                }
+
+                tinyxml2::XMLElement* particleGeneratorElement = 
+                    gameObject->FirstChildElement("particle_generator");
+                if(particleGeneratorElement)
+                {
+                    ParticleGeneratorComponent particleGeneratorComponent = 
+                        loadParticleGeneratorComponent(*particleGeneratorElement);
+                    vector<std::unique_ptr<ScriptComponent>> list;
+                    list.push_back(
+                        std::make_unique<ParticleGeneratorComponent>(particleGeneratorComponent));
+                    scripts.insert({ ScriptComponentType::PARTICLE_GENERATOR, std::move(list) });
+                }
+
                 tinyxml2::XMLElement* debugPositionElement = 
                     gameObject->FirstChildElement("debug_position");
                 if(debugPositionElement)
@@ -254,11 +305,37 @@ namespace fce
 
     RenderComponent XmlReader::loadRenderComponent(tinyxml2::XMLElement& root)
     {
-        int mesh_id = 0;
-        root.QueryIntAttribute("mesh_id", &mesh_id);
+        int geometry_id = 0;
+        root.QueryIntAttribute("geometry_id", &geometry_id);
+        int id = 0;
+        root.QueryIntAttribute("id", &id);
+
+        const char* typeStr = root.Attribute("type");
+        if (!typeStr)
+        {
+            globalLogger().error() << "Instance has no type attribute!";
+            exit(EXIT_FAILURE);
+        }
+
+        GeometryType geometryType;
+
+        if (strcmp(typeStr, "surface") == 0)
+        {
+            geometryType = GeometryType::TRIANGLES;
+        }
+        else if (strcmp(typeStr, "volume") == 0)
+        {
+            geometryType = GeometryType::AABB;
+        }
+        else
+        {
+            globalLogger().error() << "Unknown instance type: " << typeStr;
+            exit(EXIT_FAILURE);
+        }
 
         RenderComponent renderComponent;
-        renderComponent.m_meshIndex = mesh_id;
+        renderComponent.m_geometryReference.m_geometryIndex = geometry_id;
+        renderComponent.m_geometryReference.m_type = geometryType;
 
         return renderComponent;
     }
@@ -360,6 +437,51 @@ namespace fce
         root.QueryFloatAttribute("acceleration", &acceleration);
 
         return PlayerManagerComponent(ids, moveSpeed, rotateSpeed, acceleration);
+    }
+
+    BulletComponent fce::XmlReader::loadBulletComponent(tinyxml2::XMLElement& root)
+    {
+        float bulletSpeed = 0;
+        root.QueryFloatAttribute("bullet_speed", &bulletSpeed);
+        double lifeTime = 0;
+        root.QueryDoubleAttribute("life_time", &lifeTime);
+
+        return BulletComponent(bulletSpeed, lifeTime);
+    }
+
+    ShooterComponent fce::XmlReader::loadShooterComponent(tinyxml2::XMLElement &root)
+    {
+        int id = -1;
+        root.QueryIntAttribute("bullet_mesh_id", &id);
+        // TO_DO Gerer le nullptr
+        tinyxml2::XMLElement* bulletElement = root.FirstChildElement("bullet");
+        BulletComponent bulletComponent = loadBulletComponent(*bulletElement);
+
+        return ShooterComponent(LogicalIndex(static_cast<uint32_t>(id)), bulletComponent);
+    }
+
+    ParticleComponent XmlReader::loadParticleComponent(tinyxml2::XMLElement& root)
+    {
+        float particleSpeed = 0;
+        root.QueryFloatAttribute("particle_speed", &particleSpeed);
+        double lifeTime = 0;
+        root.QueryDoubleAttribute("life_time", &lifeTime);
+
+        return ParticleComponent(particleSpeed, lifeTime);
+    }
+
+    ParticleGeneratorComponent XmlReader::loadParticleGeneratorComponent(tinyxml2::XMLElement &root)
+    {
+        int particleTargetId = -1;
+        root.QueryIntAttribute("particle_volume_id", &particleTargetId);
+        double generateFrequency = 0;
+        root.QueryDoubleAttribute("generate_frequency", &generateFrequency);
+        // TO_DO Gerer le nullptr
+        tinyxml2::XMLElement* particleElement = root.FirstChildElement("particle");
+        ParticleComponent particleComponent = loadParticleComponent(*particleElement);
+
+        return ParticleGeneratorComponent(LogicalIndex(static_cast<uint32_t>(particleTargetId)), 
+            particleComponent, generateFrequency);
     }
 
     DebugPositionComponent XmlReader::loadDebugPositionComponent(tinyxml2::XMLElement& root)

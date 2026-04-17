@@ -17,7 +17,7 @@ using std::vector;
 
 namespace fge
 {
-    struct Mesh
+    class Mesh
     {
     public:
         vector<D3D12_RAYTRACING_GEOMETRY_DESC> m_geometryDescs;
@@ -34,15 +34,18 @@ namespace fge
         vector<Vertex> m_vertices;
         vector<uint32_t> m_indices;
         uint32_t m_subMeshFirstIndex;
+        uint32_t m_hitGroupIndex;
 
     public:
         Mesh() = default;
-        ~Mesh() = default;
+        ~Mesh();
 
         Mesh(const Mesh&) = delete;
         Mesh(Mesh&&) = default;
 
         Mesh& operator=(const Mesh&) = delete;
         Mesh& operator=(Mesh&&) = default;
+
+        void reset();
     };
 }

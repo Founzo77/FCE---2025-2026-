@@ -18,6 +18,7 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
 
     fge::enableAnsiColors();
     fge::MainWindow mainWindow(hInstance, 1000, 1000, "scene/shinjuku_gojo.xml");
+    //fge::MainWindow mainWindow(hInstance, 1000, 1000, "scene/prototype.xml");
     mainWindow.initialize();
     mainWindow.run();
 

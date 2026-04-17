@@ -1,0 +1,58 @@
+@startuml
+
+namespace ai_client {
+
+    class AudioStream {
+        - samplerate : int
+        - q : Queue
+        + start() : void
+        + read() : ndarray
+    }
+
+    class SpeechToText {
+        - model : TransformerPipeline
+        + transcribe(audio : ndarray) : string
+    }
+
+    class CommandModel {
+        - model : TransformerPipeline
+        + build_prompt(userText : string) : string
+        + generate(userText : string) : string
+    }
+
+    class EngineClient {
+        - base_url : string
+        + teleport(x : float, y : float, z : float) : void
+        + send_command(cmd : dict) : void
+    }
+
+    class SceneProvider {
+        + {static} get_scene_description() : string
+    }
+
+    class EngineSchema {
+        + {static} ENGINE_TOOLS : list
+    }
+
+    class AIPipeline {
+        - audio : AudioStream
+        - stt : SpeechToText
+        - commandModel : CommandModel
+        - client : EngineClient
+
+        + run() : void
+    }
+
+    class Main {
+        + main() : void
+    }
+
+    Main --> AIPipeline
+    AIPipeline --> AudioStream
+    AIPipeline --> SpeechToText
+    AIPipeline --> CommandModel
+    AIPipeline --> EngineClient
+    CommandModel --> SceneProvider
+    CommandModel --> EngineSchema
+}
+@enduml

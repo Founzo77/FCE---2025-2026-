@@ -1,6 +1,11 @@
 #include <fce/Application.hpp>
 
 #include <fce/io/XmlReader.hpp>
+#include <fce/io/server/HttplibRemoteController.hpp>
+#include <fce/io/server/RemoteCommandQueue.hpp>
+
+#include <fge/Application.hpp>
+#include <fgewa/AnariApplication.hpp>
 
 namespace fce
 {
@@ -11,11 +16,25 @@ namespace fce
 
         XmlReader reader(pathFileScene);
 
-        m_renderApplication.initializeSystem();
-        m_renderApplication.initializeMainRenderer(
+        if(reader.m_renderReader->m_sceneDescription.m_fgeApplicationType == fge::FgeApplicationType::FGE)
+        {
+            m_renderApplication = std::make_unique<fge::Application>();
+        }
+        else if(reader.m_renderReader->m_sceneDescription.m_fgeApplicationType == fge::FgeApplicationType::ANARI)
+        {
+            m_renderApplication = std::make_unique<fgewa::AnariApplication>();
+        }
+
+        m_renderApplication->initializeSystem();
+        m_renderApplication->initializeMainRenderer(
             hWnd, width, height, reader.m_renderReader->m_sceneDescription);
-        m_updateContext.initialize(m_renderApplication.getScene());
-        m_objectManager.initialize(&m_updateContext, m_renderApplication.getScene(), reader);
+        m_updateContext.initialize(m_renderApplication->getScene());
+        m_remoteCommandQueue = std::make_shared<RemoteCommandQueue>();
+        // TO_DO Lire la config dans un .xml ou .json du server
+        m_remoteController = std::make_unique<HttplibRemoteController>("127.0.0.1", "8080", m_remoteCommandQueue);
+        m_objectManager.initialize(&m_updateContext, m_renderApplication->getScene(), 
+            m_remoteCommandQueue, reader);
+        m_remoteController->run();
     }
 
     const UpdateContext& fce::Application::getUpdateContext()
@@ -27,7 +46,7 @@ namespace fce
     {
         m_updateContext.update();
         m_objectManager.update();
-        m_renderApplication.update();
+        m_renderApplication->update();
     }
 
     void Application::onKeyDown(int vk)
@@ -72,11 +91,12 @@ namespace fce
 
     void Application::resize(const uint32_t width, const uint32_t height)
     {
-        m_renderApplication.getRender().resize(width, height);
+        m_renderApplication->resize(width, height);
     }
 
     void Application::stopEngine()
     {
-        m_renderApplication.stopEngine();
+        m_remoteController->stop();
+        m_renderApplication->stopEngine();
     }
 }

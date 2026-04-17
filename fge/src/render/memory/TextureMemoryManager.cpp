@@ -9,6 +9,11 @@
 
 namespace fge
 {
+    TextureMemoryManager::~TextureMemoryManager()
+    {
+        reset();
+    }
+
     void TextureMemoryManager::startInitialize(ComPtr<ID3D12Device5> device, 
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
@@ -22,10 +27,23 @@ namespace fge
         for(Texture& texture : iterateOverTextures())
         {
             texture.m_deviceBuffer.initialize(device, texture.m_metaData);
+            d12SetDebugName(texture.m_deviceBuffer.getTexture(),
+                L"Texture Buffer");
 
             // TO_DO Integrer par rapport aux mimpmap et autres si il y a plusieurs
             // images
             const Image* image = texture.m_image.GetImage(0, 0, 0);
+            
+            /*
+            TO_DO Recommande compatible avec Mipmaps / Texture arrays / Texture 3D,2D
+            uint32_t subresourceCount =
+                texture.m_metaData.mipLevels * texture.m_metaData.arraySize;
+
+            uint64_t uploadBufferSize = GetRequiredIntermediateSize(
+                texture.m_deviceBuffer.getTexture().Get(),
+                0,
+                subresourceCount);
+            */
 
             // TO_DO est ce que uploadBufferSize commum a toutes les images ?
             // Si oui on peut peut etre avoir un seul buffer
@@ -33,6 +51,7 @@ namespace fge
                 texture.m_deviceBuffer.getTexture().Get(), 0, 1);
 
             texture.m_uploadBuffer.initialize(device, uploadBufferSize);
+            d12SetDebugName(texture.m_uploadBuffer.m_buffer, L"Texture Upload Buffer");
 
             D3D12_SUBRESOURCE_DATA textureData = {};
             textureData.pData = image->pixels;
@@ -55,6 +74,25 @@ namespace fge
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
 
+    }
+
+    void TextureMemoryManager::reset()
+    {
+        if(m_texturesPool.getNbElements() > 0)
+        {
+            for(Texture& texture : iterateOverTextures())
+            {
+                texture.reset();
+            }
+        }
+        m_texturesPool.reset();
+     
+        m_logicalIndexToPhysical.clear();
+        m_logicalIndexToPhysical.shrink_to_fit();
+        m_physicalMaterialsUpdated.clear();
+        m_physicalMaterialsUpdated.shrink_to_fit();
+        m_indirectionTableUploadBuffer.reset();
+        m_indirectionTableDeviceBuffer.reset();
     }
 
     uint64_t TextureMemoryManager::getTexturePageSize() const
@@ -211,6 +249,7 @@ namespace fge
 
     bool TextureMemoryManager::free(const LogicalIndex logicalTextureIndex)
     {
+        get(logicalTextureIndex).reset();
         bool has_freed = m_texturesPool.free(logicalTextureIndex.m_index);
 
         if(has_freed)

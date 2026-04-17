@@ -14,6 +14,11 @@
 
 namespace fge
 {
+    Application::~Application()
+    {
+        reset();
+    }
+
     void Application::initializeSystem()
     {
         globalLogger().info() << "System initialization in progress";
@@ -60,10 +65,8 @@ namespace fge
                 debugDevice->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL);
             }
         #endif
-        
-        m_device.Reset();
-        m_adapter.Reset();
         */
+        reset();
 
         ComPtr<IDXGIDebug1> dxgi_debug;
         if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(dxgi_debug.GetAddressOf()))))
@@ -72,6 +75,16 @@ namespace fge
         }
         
         globalLogger().info() << "Application shutdown complete.";
+    }
+
+    void Application::reset()
+    {
+        m_renderer.reset();
+        m_device.Reset();
+        m_adapter.Reset();
+        m_nbFrames = 0;
+        m_isTearingSupport = false;
+        m_isVSync = false;
     }
 
     shared_ptr<FgeScene> Application::getScene()
@@ -122,9 +135,11 @@ namespace fge
     void Application::initializeDirectXResources()
     {
         m_adapter = AdapterFactory::buildAdapterV4();
+        d12SetDebugName(m_adapter, L"FGE Adaptater");
         m_device = DirectXDeviceFactory::buildDirectXDeviceV5(m_adapter);
+        d12SetDebugName(m_device, L"FGE Device");
         m_nbFrames = 3;
-        // TO_DO
+        // TO_DO gestion vsync
         m_isTearingSupport = true;
         m_isVSync = true;
     }

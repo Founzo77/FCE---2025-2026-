@@ -1,9 +1,10 @@
-#include <windows.h>
+#include <fge/PlatformWindows.hpp>
 
 #include <iostream>
 #include <cstdio>
 
 #include <fce/MainWindow.hpp>
+#include <fce/benchmark/Benchmark.hpp>
 #include <fge/io/GlobalLogger.hpp>
 
 #include <streambuf>
@@ -39,30 +40,34 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
 {
     SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    //AllocConsole();
-    //FILE* fp;
-    
-    //freopen_s(&fp, "CONOUT$", "w", stdout);
-    //freopen_s(&fp, "output.txt", "w", stdout); freopen_s(&fp, "output.txt", "w", stderr);
-
     AllocConsole();
 
     // Ouvre la console
     FILE* fp;
     freopen_s(&fp, "CONOUT$", "w", stdout);
 
-    // Ouvre le fichier
     std::ofstream file("output.txt");
 
     // Redirige std::cout vers console + fichier
     static multi_streambuf multiBuf({ std::cout.rdbuf(), file.rdbuf() });
     std::ostream multiOut(&multiBuf);
 
-    // Remplace std::cout si tu veux
+    // Remplace std::cout
     std::cout.rdbuf(&multiBuf);
 
     fge::enableAnsiColors();
-    fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype.xml");
+
+    fce::BenchmarkConfig config;
+    config.m_duration = 5;
+    //fce::Benchmark mainWindow(hInstance, 1500, 1500, "scene/prototype_benchmark.xml", config);
+
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype.xml");
+    fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype_no_volume.xml");
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/cornell-box.xml");
+
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype_barney.xml");
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/game_shinjuku_gojo.xml");
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/alone.xml");
     mainWindow.initialize();
     mainWindow.run();
 

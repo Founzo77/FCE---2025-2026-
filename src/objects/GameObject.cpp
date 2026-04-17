@@ -1,5 +1,9 @@
 #include <fce/objects/GameObject.hpp>
 
+#include <fce/objects/ObjectManager.hpp>
+
+using fge::LogicalIndex;
+
 namespace fce
 {
     void GameObject::initialize(const UpdateContext* updateContext, 
@@ -51,5 +55,10 @@ namespace fce
                 script->update();
             }
         }
+    }
+
+    void GameObject::destroy()
+    {
+        m_objectManager->destroyGameObject(m_index);
     }
 }

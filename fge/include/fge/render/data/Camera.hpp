@@ -35,4 +35,17 @@ namespace fge
         void rotateY(float angleRad);
         void rotate(float xRad, float yRad);
     };
+
+    inline bool operator==(const Camera& lhs, const Camera& rhs)
+    {
+        return lhs.m_position == rhs.m_position &&
+            floatEqual(lhs.m_physicalWidth, rhs.m_physicalWidth) &&
+            floatEqual(lhs.m_physicalHeight, rhs.m_physicalHeight) &&
+            floatEqual(lhs.m_depth, rhs.m_depth);
+    }
+
+    inline bool operator!=(const Camera& lhs, const Camera& rhs)
+    {
+        return !(lhs == rhs);
+    }
 }

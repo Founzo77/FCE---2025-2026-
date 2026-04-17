@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Windows.h>
+#include <fge/PlatformWindows.hpp>
 #include <cstdint>
 #include <array>
 

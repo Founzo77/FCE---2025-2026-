@@ -25,8 +25,11 @@ namespace fge
         PageBasedAllocator();
         PageBasedAllocator(const PageBasedAllocator& other);
         PageBasedAllocator(PageBasedAllocator&& other);
+        ~PageBasedAllocator();
 
         void initialize(uint64_t nbMaxElements, uint64_t strideSize);
+
+        void reset();
 
         inline uint8_t* getBuffer()
         {

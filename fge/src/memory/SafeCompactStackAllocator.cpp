@@ -25,6 +25,11 @@ namespace fge
         other.m_strideSize = 0;
     }
 
+    SafeCompactStackAllocator::~SafeCompactStackAllocator()
+    {
+        reset();
+    }
+
     void SafeCompactStackAllocator::initialize(uint64_t nbMaxElements, uint64_t strideSize)
     {
         throwIfFailed(nbMaxElements > 0, "SafeCompactStackAllocator::initialize: nbMaxElements == 0");
@@ -39,6 +44,17 @@ namespace fge
 
         m_references.clear();
         m_references.resize(nbMaxElements * strideSize);
+    }
+
+    void SafeCompactStackAllocator::reset()
+    {
+        m_buffer.clear();
+        m_buffer.shrink_to_fit();
+        m_references.clear();
+        m_references.shrink_to_fit();
+        m_nbMaxElements = 0;
+        m_nbElements = 0;
+        m_strideSize = 0;
     }
 
     uint64_t SafeCompactStackAllocator::alloc()

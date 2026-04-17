@@ -19,6 +19,9 @@ namespace fge {
 
         + alignData(in value : uint64_t, uint64_t alignment) : uint64_t
         + alignData256(in value : uint64_t) : uint64_t
+
+        + d12SetDebugName(in object : ID3D12Object*, in message : wstring) : void
+        + d12SetDebugName(in object : IDXGIObject*, in message : wstring) : void
     }
 
     class MainWindow
@@ -69,11 +72,13 @@ namespace fge {
         - m_isTearingSupport : bool
         - m_isVSync : bool
 
+        + {virtual} ~Application()
         + {virtual} initializeSystem() : void
         + {virtual} initializeMainRenderer(in hWnd : HWND, in width : uint32_t, 
             in height : uint32_t, in out sceneDescription : SceneDescription) : void
         + {virtual} update() : void
         + {virtual} stopEngine() : void
+        + reset() : void
 
         + {virtual} getScene() : shared_ptr<FgeScene>
         + {virtual} resize(in width : uint32_t, in height : uint32_t) : void
@@ -96,8 +101,11 @@ namespace fge {
         class SwapChainFactory
         {
             + {static} buildSwapChainV4(in hWnd : HWND, in commandQueue : 
-            ComPtr<ID3D12CommandQueue>, in width : uint32_t, in height : uint32_t,
-            in nbFrame : uint32_t) : ComPtr<IDXGISwapChain4>
+                ComPtr<ID3D12CommandQueue>, in width : uint32_t, in height : uint32_t,
+                in nbFrame : uint32_t) : ComPtr<IDXGISwapChain4>
+            + {static} buildSwapChainV4(in hWnd : HWND, in commandQueue : 
+                ID3D12CommandQueue*, in width : uint32_t, in height : uint32_t,
+                in nbFrame : uint32_t) : ComPtr<IDXGISwapChain4>
         }
 
         class AdapterFactory
@@ -184,44 +192,139 @@ namespace fge {
             struct PhysicalIndex { m_index : uint32_t }
         }
 
+        struct RenderConfig
+        {
+            + m_integratorType : IntegratorType
+            + m_spp : uint32_t
+            + m_nbRenderFrames : uint32_t
+            + m_nbComputeFrames : uint32_t
+        }
+
         class MainRenderer
         {
             - m_device : ComPtr<ID3D12Device5>
-            - m_11Device : ComPtr<ID3D11Device>
-            - m_11DeviceContext : ComPtr<ID3D11DeviceContext>
-            - m_11On12Device : ComPtr<ID3D11On12Device2>
-            - m_dxgiDevice : ComPtr<IDXGIDevice>
-            - m_2DDevice : ComPtr<ID2D1Device>
-            - m_2DDeviceContext : ComPtr<ID2D1DeviceContext>
+            - m_swapChainPresenter : SwapChainPresenter
+            - m_frameComposer : FrameComposer
+            - m_renderEngine : RenderEngine
+            - m_barriers : BarrierBatch
 
-            - m_swapChain : ComPtr<IDXGISwapChain4>
-            - m_frames : FrameContext[]
-            - m_renderFence : ComPtr<ID3D12Fence>
-            - m_renderEvent : HANDLE
-            - m_renderValue : uint64_t
-            - m_rtvHeap : ComPtr<ID3D12DescriptorHeap>
-            - m_directCommandQueue : CommandQueue
-            - m_currentIdBackBuffer : UINT
-            - m_scene : shared_ptr<Scene>
-            - m_rayTracingPipeline : shared_ptr<RayTracingPipeline>
-            - m_writerFrame : WriterFrame
-
-            + MainRenderer()
-
+            + ~MainRenderer()
             + initialize(in hWnd : HWND, in device : ComPtr<ID3D12Device5>, 
                 in width : uint32_t, in height : uint32_t, in out sceneDescription : SceneDescription, 
                 in nbFrames : uint32_t) : void
-            - initializeDeviceResources(in hWnd : HWND, in device : ComPtr<ID3D12Device5>, 
-                in width : uint32_t, in height : uint32_t, in nbFrames : uint32_t) : void
+            + reset() : void
+            
+            + getScene() : shared_ptr<Scene>
+
+            + resize(in width : uint32_t, in height : uint32_t) : void
+            + renderFrame() : void
+        }
+
+        class SwapChainPresenter
+        {
+            # m_device : ComPtr<ID3D12Device5>
+            # m_swapChain : ComPtr<IDXGISwapChain4>
+            # m_rtvHeap : ComPtr<ID3D12DescriptorHeap>
+            # m_framePresentationContexts : vector<FramePresentationContext>
+            # m_currentIdBackBuffer : UINT
+
+            + {virtual} ~SwapChainPresenter()
+            + {virtual} initialize(in hWnd : HWND, in device : ComPtr<ID3D12Device5>, 
+                in commandQueue : ID3D12CommandQueue*
+                in width : uint32_t, in height : uint32_t, in nbBackBuffers : uint32_t)  : void
+            + {virtual} reset()
+            + {virtual} resize(in width : uint32_t, in height : uint32_t) : void
+            - updateRenderTargetViews() : void
+            + {virtual} copyOutputToRTV(in context : FrameExecutionContext) : void
+            + {virtual} presentFrame() : void
+            + {virtual} setBackBufferState(in out barrierBatch : BarrierBatch, 
+                in beforState : D3D12_RESOURCE_STATES, in afterState : D3D12_RESOURCE_STATES) : void
+        }
+
+        class OpenXRSwapChainPresenter
+        {
+
+        }
+        SwapChainPresenter <|-- OpenXRSwapChainPresenter
+
+        class FramePresentationContext
+        {
+            + m_rtvHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+            + m_backBuffer : ComPtr<ID3D12Resource>
+
+            + ~FramePresentationContext()
+            + initialize(in device : ComPtr<ID3D12Device5>,
+                rtvDescriptorSize : UINT, in rtvHandle : CD3DX12_CPU_DESCRIPTOR_HANDLE,
+                in backBuffer : ComPtr<ID3D12Resource>) : void
+            + reset() : void
+            + updateRenderTargetView(in device : ComPtr<ID3D12Device5>,
+                rtvDescriptorSize : UINT, in rtvHandle : CD3DX12_CPU_DESCRIPTOR_HANDLE,
+                in backBuffer : ComPtr<ID3D12Resource>) : void
+            + resetBackBuffer() : void            
+            + setPresentState(in directCommandList : ID3D12GraphicsCommandList4*) : void
+            + setRenderTargetState(in directCommandList : ID3D12GraphicsCommandList4*) : void
+            + setOmSetRenderTarget(in context : FrameExecutionContext) : void
+        }
+
+        class FrameComposer
+        {
+            - m_device : ComPtr<ID3D12Device5>
+            - m_imGuiLayer : ImGuiLayer
+            - m_width : uint32_t
+            - m_height : uint32_t
+
+            + ~FrameComposer()
+            + initialize(in hWnd, HWND, in device : ComPtr<ID3D12Device5>, 
+                in nbBackBuffers : uint32_t, in width : uint32_t, in height : uint32_t) : void
+            + reset() : void
+            + resize(in width : uint32_t, in height : uint32_t) : void
+            + renderFrame(in context : FrameExecutionContext, 
+                FramePresentationContext) : void
+        }
+
+        class FrameExecutionContext
+        {
+            + m_commandList : ID3D12GraphicsCommandList4*
+            + m_outputTexture : ID3D12Resource*
+            + setOutputTextureState(in out barrierBatch : BarrierBatch, 
+                in beforState : D3D12_RESOURCE_STATES, in afterState : D3D12_RESOURCE_STATES) : void
+        }
+
+        class RenderEngine
+        {
+            - ComPtr<ID3D12Device5> m_device
+            - shared_ptr<Scene> m_scene
+            - shared_ptr<RayTracingPipeline> m_rayTracingPipeline
+            - m_directCommandQueue : CommandQueue
+            - m_frameContexts : vector<FrameContext>
+            - m_currentIdFrame : uint32_t
+            - m_renderFence : ComPtr<ID3D12Fence>
+            - m_renderFenceEvent : HANDLE
+            - m_renderFenceValue : uint64_t
+
+            + initialize(in device : ComPtr<ID3D12Device5>, in width : uint32_t, 
+                in height : uint32_t, in out sceneDescription : SceneDescription,
+                in nbFrameContexts : uint32_t) : void
+
+            + reset() : void
+
+            - initializeDeviceResources(in width : uint32_t, 
+                in height : uint32_t, in nbFrameContexts : uint32_t) : void
             - initializeScene(in out sceneDescription : SceneDescription) : void
+
+            + getScene() : shared_ptr<Scene>
+            + getOutputTexture() : ID3D12Resource*
+            + getSharedOutputTextureHandle() : HANDLE
+            + getDirectCommandQueue() : ID3D12CommandQueue*
             
             + resize(in width : uint32_t, in height : uint32_t) : void
-            + getScene() : shared_ptr<Scene>
-            + renderFrame() : void
-
-            - updateRenderTargetViews() : void
-            - clearFrame() : void
-            - updateFrame() : void
+            + startRender() : FrameExecutionContext
+            + executeRender() : void
+            + copyOutputToHost() : void
+            + copyOutputToSharedResource() : void
+            + endRender() : void
+            + synchronize() : void
+            + copyOutputHostToHost(in dstBuffer : void*, in dstSize : uint64_t) : void
         }
 
         class CommandQueue
@@ -230,6 +333,7 @@ namespace fge {
 
             + initialize(in device : ComPtr<ID3D12Device5>,
                 in type : D3D12_COMMAND_LIST_TYPE) : void
+            + reset() : void
             + flush(in fence : ComPtr<ID3D12Fence>, in event : HANDLE,
                 in out fenceValue : uint64_t) : void
         }
@@ -238,22 +342,12 @@ namespace fge {
         {
             - m_directCommandAllocator : ComPtr<ID3D12CommandAllocator>
             + m_directCommandList : ComPtr<ID3D12GraphicsCommandList4>
-            + m_backBuffer : ComPtr<ID3D12Resource>
-            + m_rtvHandle : D3D12_CPU_DESCRIPTOR_HANDLE
             + m_fenceValue : uint64_t
 
             + getFenceValue() : uint64_t
 
-            + initialize(in device : ComPtr<ID3D12Device5>,
-                in rtvDescriptorSize : UINT, in out rtvHandle : CD3DX12_CPU_DESCRIPTOR_HANDLE
-                in backBuffer : ComPtr<ID3D12Resource>) : void
-            + updateRenderTargetView(in device : ComPtr<ID3D12Device5>,
-                in rtvDescriptorSize : UINT, in out rtvHandle : CD3DX12_CPU_DESCRIPTOR_HANDLE
-                in backBuffer : ComPtr<ID3D12Resource>) : void
-            + resetBackBuffer(in fenceValue : uint64_t) : void
+            + initialize(in device : ComPtr<ID3D12Device5>) : void
             + resetCommand() : void
-            + setRenderFrame() : void
-            + setPresentFrame() : void
         }
 
         class FgeScene
@@ -275,6 +369,13 @@ namespace fge {
             + {virtual} rotateCamera(in xRad : float, in yRad : float) : void = 0
 
             + {virtual} setCamera(in camera : Camera) : void = 0
+
+            + {virtual} getNbMaxMeshes() : uint32_t
+            + {virtual} getNbMaxSubMeshes() : uint32_t
+            + {virtual} getNbMaxInstances() : uint32_t
+            + {virtual} getNbMaxMaterials() : uint32_t
+            + {virtual} getNbMaxTextures() : uint32_t
+            + {virtual} getNbMaxLights() : uint32_t
         }
 
         class Scene
@@ -282,10 +383,14 @@ namespace fge {
             - m_memory : shared_ptr<SceneMemoryManager>
             - m_camera : Camera
 
+            + ~Scene() : void
+
             + buildScene(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                 ComPtr<ID3D12GraphicsCommandList4>) : void
             + buildScene(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                 ComPtr<ID3D12GraphicsCommandList4>, in out sceneDescription : SceneDescription) : void
+
+            + reset() : void
 
             + getMemory() : shared_ptr<SceneMemoryManager>
 
@@ -304,21 +409,55 @@ namespace fge {
             + {virtual} rotateCamera(in xRad : float, in yRad : float) : void
 
             + {virtual} setCamera(in camera : Camera) : void
+
+            + {virtual} getNbMaxMeshes() : uint32_t
+            + {virtual} getNbMaxSubMeshes() : uint32_t
+            + {virtual} getNbMaxInstances() : uint32_t
+            + {virtual} getNbMaxMaterials() : uint32_t
+            + {virtual} getNbMaxTextures() : uint32_t
+            + {virtual} getNbMaxLights() : uint32_t
         }
         FgeScene <|-- Scene
 
-        class WriterFrame
+        namespace imgui
         {
-            - m_11On12Device : ComPtr<ID3D11On12Device2>
-            - m_2DDeviceContext : ComPtr<ID2D1DeviceContext>
-            - m_11WrappedResources : vector<ComPtr<ID3D11Resource>>
-            - m_surfaces : vector<ComPtr<IDXGISurface>>
-            - m_2DRenderTargets : vector<ComPtr<ID2D1Bitmap1>>
-            - m_textFormat : ComPtr<IDWriteTextFormat>
+            class ImGuiLayer
+            {
+                - m_device : ComPtr<ID3D12Device5>
+                - m_descriptorHeap : ComPtr<ID3D12DescriptorHeap>
+                - m_fontCpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+                - m_fontGpuHandle : D3D12_GPU_DESCRIPTOR_HANDLE
+                - m_nbBufferingFrames : uint32_t
+                - m_backbufferFormat : DXGI_FORMAT
+                - m_panel : unique_ptr<ImGuiPanel>
 
-            + initialize(in device11On12 : ComPtr<ID3D11On12Device2>, 
-                in device2DContext : ComPtr<ID2D1DeviceContext>, in framesTarget : vector<FrameContext>) : void
-            + writeToTexture(in text : string, in renderTargetIndex : UINT) : void
+                + initialize(in hWnd : HWND, device : ComPtr<ID3D12Device5>,
+                    in nbBufferingFrames : uint32_t, in backbufferFormat : DXGI_FORMAT) : void
+                + beginFrame() : void
+                + drawUI() : void
+                + render(in cmdList : ID3D12GraphicsCommandList4*) : void
+            }
+
+            class ImGuiPanel
+            {
+                + {virtual} drawUI() : void
+                + {virtual} reset() : void
+            }
+
+            class StatsPanel
+            {
+                - m_title : string
+                - m_fpsHistory : vector<float>
+                - m_offsets : uint64_t
+                - m_currentFps : float
+                - m_currentFrameMs : float
+
+                + StatsPanel(in title : string, in nbFps : uint32_t)
+                + ~StatsPanel()
+                + {virtual} drawUI() : void
+                + {virtual} reset() : void
+            }
+            ImGuiPanel <|-- StatsPanel
         }
 
         namespace data
@@ -331,7 +470,7 @@ namespace fge {
                 - _padding1 : uint32_t
             }
 
-            struct Mesh
+            class Mesh
             {
                 + m_geometryDescs : vector<D3D12_RAYTRACING_GEOMETRY_DESC>
                 + m_blasDescription : D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC
@@ -347,6 +486,10 @@ namespace fge {
                 + m_vertices : vector<Vertex>
                 + m_indices : vector<uint32_t>
                 + m_subMeshFirstIndex : uint32_t
+                + m_hitGroupIndex : uint32_t
+
+                + ~Mesh()
+                + reset() : void
             }
 
             struct SubMeshData
@@ -361,6 +504,34 @@ namespace fge {
                 + m_materialIndex : uint32_t
             }
 
+            class Volume
+            {
+                + m_geometryDesc : D3D12_RAYTRACING_GEOMETRY_DESC
+                + m_blasDescription : D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC
+                + m_aabbBuffer : DefaultDeviceBuffer
+                + m_aabbUploadBuffer : UploadBuffer
+                + m_volumeDataUploadBuffer : UploadBuffer
+                + m_blasBuffer : DefaultDeviceBuffer
+                + m_volumeDataBuffer : DefaultDeviceBuffer
+                + m_volumeData : VolumeData
+                + m_sbtBaseIndex : uint32_t
+                + m_hitGroupIndex : uint32_t
+
+                + ~Volume()
+                + reset() : void
+            }
+
+            struct VolumeData
+            {
+                + m_mins : float3
+                - m_scalarMin : float
+                + m_max : float3
+                - m_scalarMax : float
+                + m_texture3DIndex : uint
+                + m_transferFunctionTextureIndex : uint
+                - _padding2 : float2
+            }
+
             struct Material
             {
                 + m_reflectance : XMFLOAT3
@@ -373,12 +544,24 @@ namespace fge {
                 + m_shininess : float
             }
 
-            struct Instance
+            enum GeometryType
             {
-                + m_meshIndex : uint32_t
-                + m_transform : XMMATRIX
+                + TRIANGLES,
+                + AABB
             }
 
+            struct GeometryReference
+            {
+                + m_type : GeometryType
+                + m_geometryIndex : uint32_t
+            }
+
+            struct Instance
+            {
+                + m_geometryReference : GeometryReference
+                + m_transform : XMMATRIX
+            }
+            
             struct Vertex
             {
                 + m_position : XMFLOAT3
@@ -393,7 +576,14 @@ namespace fge {
                 + m_deviceBuffer : TextureBuffer
                 + m_uploadBuffer : UploadBuffer
 
+                + ~Texture()
                 + initialize(in texturePathFile : string) : void
+                + initializeFromDDS(in texturePathFile : string) : void
+                + initializeFromRawTexture2D(in data : void*, in width : uint32_t, in height : uint32_t,
+                    in format : DXGI_FORMAT) : void
+                + initializeFromRawVolume(in data : void*, in width : uint32_t, in height : uint32_t,
+                    in depth : uint32_t, in format : DXGI_FORMAT) : void
+                + reset() : void
             }
 
             class Basis
@@ -468,8 +658,26 @@ namespace fge {
 
             struct DeviceConstantInformations
             {
-                + m_camera : DeviceCamera
+                + m_position : XMFLOAT4
+                + m_forward : XMFLOAT4
+                + m_up : XMFLOAT4
+                + m_right : XMFLOAT4
+                + m_physicalWidth : float
+                + m_physicalHeight : float
+                + m_depth : float
+                + m_nbLights : uint32_t
+                + m_backgroundTextureIndex : uint32_t
+                + m_integratorType : IntegratorType
+                + m_spp : uint
+                + m_sppIndex : uint
             }
+
+            enum IntegratorType
+            {
+                PHONG,
+                PATHTRACER
+            }
+            uint32_t <|-- IntegratorType
 
             struct DeviceCamera
             {
@@ -481,73 +689,121 @@ namespace fge {
                 + m_physicalHeight : float
                 + m_depth : float
             }
+
+            struct Background
+            {
+                + m_textureIndex : uint32_t
+            }
+
+            class BarrierBatch
+            {
+                - m_barriers : vector<CD3DX12_RESOURCE_BARRIER>
+
+                + reset() : void
+                + add(in barrier : CD3DX12_RESOURCE_BARRIER) : void
+                + submit(in ID3D12GraphicsCommandList4* commandList) : void
+            }
         }
 
         namespace memory
         {
             class SceneMemoryManager
             {
+                - m_background : Background
+                - m_renderConfig : RenderConfig
                 - m_texturesMemory : TextureMemoryManager
+                - m_textures3DMemory : TextureMemoryManager
                 - m_materialsMemory : MaterialMemoryManager
                 - m_meshesMemory : MeshMemoryManager
+                - m_volumesMemory : VolumeMemoryManager
                 - m_instancesMemory : InstanceMemoryManager
                 - m_lightsMemory : LightMemoryManager
                 + m_outputTexture : TextureBuffer
+                + m_accumulatedLeftTexture : TextureBuffer
+                + m_accumulatedRightTexture : TextureBuffer
+                + m_isLeftAccumlatedInput : bool
+                + DeviceConstantInformations : m_currentDeviceConstantInformations
+                - m_outputReadbackBuffer : ComPtr<ID3D12Resource>
+                - m_sharedOutputTexture : ComPtr<ID3D12Resource>
+                - m_sharedOutputHandle : HANDLE
 
                 - m_camera : Camera
                 - m_constantBufferHasChanged : bool
 
-                - m_constantUploadBuffer : UploadBuffer
+                - m_constantUploadBuffers : vector<UploadBuffer>
 
                 - m_rayTracingPipeline : shared_ptr<RayTracingPipeline>
 
+                + ~SceneMemoryManager()
+
+                + getBackground() : Background
                 + getTexture(in textureIndex : LogicalIndex) : Texture
+                + getTexture3D(in texture3DIndex : LogicalIndex) : Texture
                 + getMaterial(in materialIndex : LogicalIndex) : Material
                 + getMesh(in meshIndex : LogicalIndex) : Mesh
+                + getVolume(in volumeIndex : LogicalIndex) : Volume
                 + getInstance(in instanceIndex : LogicalIndex) : Instance
                 + getLight(in lightIndex : LogicalIndex) : Light
 
                 + getNbMeshes() : uint32_t
                 + getSubNbMeshes() : uint32_t
+                + getNbVolumes() : uint32_t
                 + getNbInstances() : uint32_t
                 + getNbMaterials() : uint32_t
                 + getNbTextures() : uint32_t
+                + getNbTextures3D() : uint32_t
                 + getNbLights() : uint32_t
 
                 + getNbMaxMeshes() : uint32_t
                 + getNbMaxSubMeshes() : uint32_t
+                + getNbMaxVolumes() : uint32_t
                 + getNbMaxInstances() : uint32_t
                 + getNbMaxMaterials() : uint32_t
                 + getNbMaxTextures() : uint32_t
+                + getNbMaxTextures3D() : uint32_t
                 + getNbMaxLights() : uint32_t
 
-                + getConstantUploadBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
+                + getConstantUploadBufferAddress(in computeFrameIndex : uint) : D3D12_GPU_VIRTUAL_ADDRESS
 
                 + getOutputTextureBufferResource() : ID3D12Resource*
+                + getAccumulatedLeftTextureBufferResource() : ID3D12Resource*
+                + getAccumulatedRightTextureBufferResource() : ID3D12Resource*
+                + getHostOutputTextureBufferResource() : ID3D12Resource*
+                + getSharedOutputTextureBufferResource() : ID3D12Resource*
                 + getVertexBufferResource(in meshIndex : LogicalIndex) : ID3D12Resource*
                 + getIndexBufferResource(in meshIndex : LogicalIndex) : ID3D12Resource*
                 + getSubMeshDataBufferResource(in meshIndex : LogicalIndex) : ID3D12Resource*
+                + getVolumeDataBufferResource(in volumeIndex : LogicalIndex) : ID3D12Resource*
                 + getLightBufferResource() : ID3D12Resource*
                 + getMaterialBufferResource() : ID3D12Resource*
                 + getIndirectionMaterialTableBufferResource() : ID3D12Resource*
                 + getTextureBufferResource(in textureIndex : LogicalIndex) : ID3D12Resource*
+                + getTexture3DBufferResource(in texture3DIndex : LogicalIndex) : ID3D12Resource*
 
                 + getOutputTextureBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
+                + getAccumulatedLeftTextureBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
+                + getAccumulatedRightTextureBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
                 + getVertexBufferAddress(in meshIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
                 + getIndexBufferAddress(in meshIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
+                + getSubMeshesDataBufferAddress(in meshIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
+                + getVolumeDataBufferAddress(in volumeIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
                 + getLightBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
                 + getMaterialBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
                 + getIndirectionMaterialTableBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
                 + getTextureBufferAddress(in textureIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
-                + getBlasBufferAddress(in meshIndex : uinLogicalIndext32_t) : D3D12_GPU_VIRTUAL_ADDRESS
+                + getTexture3DBufferAddress(in texture3DIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
+                + getBlasBufferAddress(in meshIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
+                + getVolumeBlasBufferAddress(in volumeIndex : LogicalIndex) : D3D12_GPU_VIRTUAL_ADDRESS
                 + getTlasBufferAddress() : D3D12_GPU_VIRTUAL_ADDRESS
+
+                + isLeftAccumlatedInput() : bool
 
                 + initialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + initialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>, in sceneDescription : SceneDescription) : void
                 
-                - initializeConstantUploadBuffer(in device : ComPtr<ID3D12Device5>) : void
+                - initializeConstantUploadBuffer(in device : ComPtr<ID3D12Device5>, in nbComputeFrames : uint) : void
 
                 + initializeOutputTexture(in device : ComPtr<ID3D12Device5>, 
                     in width : uint32_t, in height : uint32_t) : void
@@ -556,20 +812,28 @@ namespace fge {
 
                 + onCbsSrvUabViewInitializationCreateOutputUavTexture(
                     in device : ComPtr<ID3D12Device5>, in cpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
+                + onCbsSrvUabViewInitializationCreateAccumulatedLeftUavTexture(
+                    in device : ComPtr<ID3D12Device5>, in cpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
+                + onCbsSrvUabViewInitializationCreateAccumulatedRightUavTexture(
+                    in device : ComPtr<ID3D12Device5>, in cpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
                 + onCbsSrvUabViewInitializationFillMeshSrv(
                     in device : ComPtr<ID3D12Device5>, in handleView : CbvSrvUavView) : void
                 + onCbsSrvUabViewInitializationFillTextureSrv(
                     in device : ComPtr<ID3D12Device5>, in handleView : CbvSrvUavView) : void
+                + onCbsSrvUabViewInitializationFillTexture3DSrv(
+                    in device : ComPtr<ID3D12Device5>, in handleView : CbvSrvUavView) : void
+
+                + reset() : void
 
                 + setCamera(in camera : Camera) : void
                 + setRayTracingPipeline(in rayTracingPipeline : shared_ptr<RayTracingPipeline>) : void
 
                 + updateDevice(in device : ComPtr<ID3D12Device5>, in directCommandList : 
-                    ComPtr<ID3D12GraphicsCommandList4>) : void
+                    ComPtr<ID3D12GraphicsCommandList4>, in computeFrameIndex : uint) : void
 
-                - updateConstantBufferToDevice() : void
-                - uploadConstantInformation(in constantInformation :
-                    DeviceConstantInformations) : void
+                - updateConstantBufferToDevice(in computeFrameIndex : uint) : void
+                - uploadConstantInformation(in constantInformation : DeviceConstantInformations, 
+                    in computeFrameIndex : uint) : void
 
                 + addLight(in newLight : Light, in lightIndex : LogicalIndex) : void
                 + modifyLight(in newLight : Light, in lightIndex : LogicalIndex) : void
@@ -579,6 +843,10 @@ namespace fge {
                 + modifyTexture(in newTexture : Texture, in textureIndex : LogicalIndex) : void
                 + deleteTexture(in textureIndex : LogicalIndex) : void
 
+                + addTexture3D(in newTexture3D : Texture, in texture3DIndex : LogicalIndex) : void
+                + modifyTexture3D(in newTexture3D : Texture, in texture3DIndex : LogicalIndex) : void
+                + deleteTexture(in texture3DIndex : LogicalIndex) : void
+
                 + addMaterial(in newMaterial : Material, in materialIndex : LogicalIndex) : void
                 + modifyMaterial(in newMaterial : Material, in materialIndex : LogicalIndex) : void
                 + deleteMaterial(in materialIndex : LogicalIndex) : void
@@ -587,11 +855,13 @@ namespace fge {
                 + modifyInstance(in newInstance : Instance, in instanceIndex : LogicalIndex) : void
                 + deleteInstance(in instanceIndex : LogicalIndex) : void
 
-                - addMesh(in out toAdd : Mesh, in meshIndex : LogicalIndex)
-                - addInstance(in toAdd : Instance, in instanceIndex : LogicalIndex)
-                - addTexture(in out toAdd : Texture, in textureIndex : LogicalIndex)
-                - addMaterial(in toAdd : Material, in materialIndex : LogicalIndex)
-                - addLight(in toAdd : Light, in lightIndex : LogicalIndex)
+                - initializeAddMesh(in out toAdd : Mesh, in meshIndex : LogicalIndex) : void
+                - initializeAddVolume(in out toAdd : Volume, in volumeIndex : LogicalIndex) : void
+                - initializeAddInstance(in out toAdd : Instance, in meshIndex : instanceIndex) : void
+                - initializeAddTexture(in out toAdd : Texture, in meshIndex : textureIndex) : void
+                - initializeAddTexture3D(in out toAdd : Texture3D, in meshIndex : texture3DIndex) : void
+                - initializeAddMaterial(in out toAdd : Material, in materialIndex : LogicalIndex) : void
+                - initializeAddLight(in out toAdd : Light, in lightIndex : LogicalIndex) : void
             }
 
             class TextureMemoryManager
@@ -606,6 +876,8 @@ namespace fge {
                 - m_indirectionTableUploadBuffer : UploadBuffer
                 - m_indirectionTableDeviceBuffer : DefaultDeviceBuffer
 
+                + ~TextureMemoryManager()
+
                 + startInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>, in nbBufferingFrames : uint32_t,
                     in baseTextureSrvCpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
@@ -613,6 +885,8 @@ namespace fge {
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + endInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
+
+                + reset() : void
 
                 + getTexturePageSize() : uint64_t
                 + getNbMaxTextures() : uint64_t
@@ -640,12 +914,16 @@ namespace fge {
                 - m_indirectionTableUploadBuffer : UploadBuffer
                 - m_indirectionTableDeviceBuffer : DefaultDeviceBuffer
 
+                + ~MaterialMemoryManager()
+
                 + startInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + moveAllToDevice(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + endInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
+
+                + reset() : void
 
                 + getMaterialPageSize() : uint64_t
                 + getNbMaxMaterials() : uint64_t
@@ -674,12 +952,16 @@ namespace fge {
                 - m_uploadBuffer : UploadBuffer
                 - m_hasLightsResized : bool
 
+                + ~LightMemoryManager()
+
                 + startInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + moveAllToDevice(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
                 + endInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
+
+                + reset() : void
 
                 + getLightPageSize() : uint64_t
                 + getNbMaxLights() : uint64_t
@@ -704,6 +986,8 @@ namespace fge {
                 - m_nbSubMeshes : uint32_t
                 - m_logicalIndexToPhysical : vector<uint32_t>
                 - m_physicalIndexToLogical : vector<uint32_t>
+
+                + ~MeshMemoryManager()
 
                 + startInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
                     ComPtr<ID3D12GraphicsCommandList4>) : void
@@ -731,6 +1015,41 @@ namespace fge {
                 + free(in meshIndex : LogicalIndex) : bool
             }
 
+            class VolumeMemoryManager
+            {
+                - m_volumesPool : SafePageBasedAllocator
+                - m_scratchBlasBuffers : DefaultHeapBuffer
+                - m_maxBlasScratchSize : uint64_t
+                - m_logicalIndexToPhysical : vector<uint32_t>
+                - m_physicalIndexToLogical : vector<uint32_t>
+
+                + ~VolumeMemoryManager()
+
+                + startInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
+                    ComPtr<ID3D12GraphicsCommandList4>) : void
+                + moveAllToDevice(in device : ComPtr<ID3D12Device5>, in directCommandList : 
+                    ComPtr<ID3D12GraphicsCommandList4>) : void
+                + endInitialize(in device : ComPtr<ID3D12Device5>, in directCommandList : 
+                    ComPtr<ID3D12GraphicsCommandList4>) : void
+
+                + reset() : void
+
+                + getVolumePageSize() : uint64_t
+                + getNbMaxVolumes() : uint64_t
+                + getNbVolumes() : uint32_t
+
+                + logicalToPhysicalIndex(in logicalIndex : LogicalIndex) : PhysicalIndex
+                + physicalToLogicalIndex(in physicalIndex : PhysicalIndex) : LogicalIndex
+
+                + get(in volumeIndex : LogicalIndex) : Volume
+                + iterateOverVolumes() : iterator<Volume>
+                + iterateOverIndexVolumes() : iterator<Volume>
+
+                + add(in out volume : Volume, in volumeIndex : LogicalIndex) : PhysicalIndex
+                + share(in volumeIndex : LogicalIndex) : void
+                + free(in volumeIndex : LogicalIndex) : bool
+            }
+
             class InstanceMemoryManager
             {
                 - m_instancesPool : PageBasedAllocator
@@ -745,12 +1064,17 @@ namespace fge {
                 - m_instanceDescPool : CompactStackAllocator
                 - m_logicalInstancesUpdated : vector<IndexRange>
 
+                + ~InstanceMemoryManager()
+
                 + startInitialize() : void
                 + moveAllToDevice(in device : ComPtr<ID3D12Device5>, in directCommandList : 
-                    ComPtr<ID3D12GraphicsCommandList4>) : void
+                    ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager,
+                    in volumeMemory : VolumeMemoryManager) : void
                 - initializeTlas(in device : ComPtr<ID3D12Device5>, in directCommandList : 
-                    ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager) : void
+                    ComPtr<ID3D12GraphicsCommandList4>) : void
                 + endInitialize() : void
+
+                + reset() : void
 
                 + getInstancePageSize() : uint64_t
                 + getNbMaxInstances() : uint64_t
@@ -762,9 +1086,11 @@ namespace fge {
                 + iterateOverInstances() : iterator<Instance>
 
                 + updateDevice(in device : ComPtr<ID3D12Device5>,
-                    in directCommandList : ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager) : void
+                    in directCommandList : ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager,
+                    in volumeMemory : VolumeMemoryManager) : void
                 - updateInstanceDescUploadBuffer(in device : ComPtr<ID3D12Device5>,
-                    in directCommandList : ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager) : void
+                    in directCommandList : ComPtr<ID3D12GraphicsCommandList4>, in meshMemory : MeshMemoryManager,
+                    in volumeMemory : VolumeMemoryManager) : void
                 - updateResizedTlas(in device : ComPtr<ID3D12Device5>,
                     in directCommandList : ComPtr<ID3D12GraphicsCommandList4>) : void
                 - updateTransformedTlas(in directCommandList : ComPtr<ID3D12GraphicsCommandList4>) : void
@@ -781,7 +1107,8 @@ namespace fge {
                 - m_buffer : ComPtr<ID3D12Resource>
 
                 + DefaultDeviceBuffer()
-                + DefaultDeviceBuffer(in other : DefaultDeviceBuffer)
+                + DefaultDeviceBuffer(in out other : DefaultDeviceBuffer)
+                ~DefaultDeviceBuffer()
 
                 + initialize(in device : ComPtr<ID3D12Device5>, in size : uint64_t,
                     in resourceFlag : D3D12_RESOURCE_FLAGS, in initialResourceState : 
@@ -789,6 +1116,8 @@ namespace fge {
                 + reallocate(in device : ComPtr<ID3D12Device5>, in size : uint64_t,
                     in resourceFlag : D3D12_RESOURCE_FLAGS, in initialResourceState : 
                     D3D12_RESOURCE_STATES=D3D12_RESOURCE_STATE_COMMON) : void
+
+                + reset() : void
 
                 + getSize() : uint64_t
                 + getBuffer() : ComPtr<ID3D12Resource>
@@ -802,13 +1131,15 @@ namespace fge {
                 - m_buffers : vector<ComPtr<ID3D12Resource>>
 
                 + DefaultHeapBuffer()
-                + DefaultHeapBuffer(in other : DefaultHeapBuffer)
+                + ~DefaultHeapBuffer()
 
                 + initialize(in device : ComPtr<ID3D12Device5>, in totalSize : uint64_t,
                     in heapFlag : D3D12_HEAP_FLAGS) : void
                 + allocate(in device : ComPtr<ID3D12Device5>, in size : uint64_t,
                     in resourceFlag : D3D12_RESOURCE_FLAGS, 
                     in initialResourceState : D3D12_RESOURCE_STATES) : void
+
+                + reset() : void
 
                 + getTotalSize() : uint64_t
                 + getNbElements() : uint64_t
@@ -821,10 +1152,13 @@ namespace fge {
                 - m_buffer : ComPtr<ID3D12Resource>
 
                 + UploadBuffer()
-                + UploadBuffer(in other : UploadBuffer)
+                + UploadBuffer(in out other : UploadBuffer)
+                + ~UploadBuffer()
 
                 + initialize(in device : ComPtr<ID3D12Device5>, in size : uint64_t) : void
                 + reallocate(in device : ComPtr<ID3D12Device5>, in size : uint64_t) : void
+
+                + reset() : void
 
                 + getSize() : uint64_t
                 + getBuffer() : ComPtr<ID3D12Resource>
@@ -842,16 +1176,23 @@ namespace fge {
                 - m_texture : ComPtr<ID3D12Resource>
 
                 + TextureBuffer()
-                + TextureBuffer(in other : TextureBuffer)
+                + TextureBuffer(in out other : TextureBuffer)
+                + ~TextureBuffer()
 
                 + initialize(in device : ComPtr<ID3D12Device5>, in width : uint32_t,
-                    in height : uint32_t) : void
+                    in height : uint32_t, in flags : D3D12_RESOURCE_FLAGS, 
+                    in format : DXGI_FORMAT) : void
                 + initialize(in device : ComPtr<ID3D12Device5>, in metadata : TexMetadata) : void
                 + reallocate(in device : ComPtr<ID3D12Device5>, in width : uint32_t,
-                    in height : uint32_t) : void
+                    in height : uint32_t, in flags : D3D12_RESOURCE_FLAGS, 
+                    in format : DXGI_FORMAT) : void
                  + reallocate(in device : ComPtr<ID3D12Device5>, metadata : TexMetadata) : void
                 + createUAV(in device : ComPtr<ID3D12Device5>,
                     in cpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
+                + createRTV(in device : ComPtr<ID3D12Device5>,
+                    in cpuHandle : D3D12_CPU_DESCRIPTOR_HANDLE) : void
+
+                + reset() : void
 
                 + getWidth() : uint32_t
                 + getHeight() : uint32_t
@@ -867,51 +1208,122 @@ namespace fge {
 
         namespace pipeline_state
         {
+            enum ShaderType
+            {
+                + MISS,
+                + RAY_GEN,
+                + CLOSEST_HIT,
+                + INTERSECTION,
+                + ANY_HIT
+            }
+
+            struct ShaderDesc
+            {
+                + m_name : wstring
+                + m_compiledShaderPathFile : string
+                + m_type : ShaderType
+            }
+
+            enum HitGroupDomain
+            {
+                + SURFACIQUE,
+                + VOLUMIQUE
+            }
+
+            struct HitGroupDesc
+            {
+                + m_name : wstring
+                + m_closestHitShaderName : optional<wstring>
+                + m_intersectionShaderName : optional<wstring>
+                + m_anyHitShaderName : optional<wstring>
+                + m_hitGroupDomain : HitGroupDomain
+
+                + HitGroupDesc()
+                + HitGroupDesc(in name : wstring, in closestHitShaderName : wstring,
+                    in intersectionShaderName : optional<wstring>, in anyHitShaderName : optional<wstring>,
+                    in hitGroupDomain : HitGroupDomain)
+            }
+
+            class ShaderBank
+            {
+                + {static} SHADERS_DESCRIPTIONS : ShaderDesc[]
+                + {static} HIT_GROUP_DESCRIPTIONS : HitGroupDesc[]
+                
+                - m_exportDescriptions : vector<D3D12_EXPORT_DESC>
+                - m_libraryDescriptions : vector<D3D12_DXIL_LIBRARY_DESC>
+                - m_compiledShaders : vector<vector<char>>
+                - m_hitGroupDescriptions : vector<D3D12_HIT_GROUP_DESC>
+                - m_stateSubObjects : vector<D3D12_STATE_SUBOBJECT>
+                - m_surfaciqueHitGroupNames : vector<wstring>
+                - m_volumiqueHitGroupNames : vector<wstring>
+                - m_hitGroupIdentifiers : vector<void*>
+                - m_missShaderIdentifier : void*
+                - m_rayGenShaderIdentifier : void*
+
+                + getStateSubObjects() : vector<D3D12_STATE_SUBOBJECT>
+
+                + {static} getHitGroupIndex(in hitGroupName : wstring) : uint32_t
+                + getMissShaderIdentifier() : void*
+                + getRayGenShaderIdentifier() : void*
+                + getHitGroupIdentifier(in hitGroupIndex : uint32_t) : void*
+
+                + getSurfaciqueHitGroupNames() : vector<wstring>
+                + getVolumiqueHitGroupNames() : vector<wstring>
+
+                + initialize() : void
+                + resolveShaderIdentifiers(in pipelineProperties : ComPtr<ID3D12StateObjectProperties>)
+            }
+
             class RayTracingPipeline
             {
                 - m_width : uint32_t
                 - m_height : uint32_t
                 - m_handleView : CbvSrvUavView
+                - m_handleHostView : CbvSrvUavView
                 - m_sbtTable : SbtTable
+                - m_shaderBank : ShaderBank
 
-                - m_globalRootSignature :  ComPtr<ID3D12RootSignature>
-                - m_localRootSignature :  ComPtr<ID3D12RootSignature>
+                - m_device : ComPtr<ID3D12Device5>
+                - m_globalRootSignature : ComPtr<ID3D12RootSignature>
+                - m_localRootSurfaceSignature : ComPtr<ID3D12RootSignature>
+                - m_localRootVolumeSignature : ComPtr<ID3D12RootSignature>
                 - m_pipelineState : ComPtr<ID3D12StateObject>
                 - m_pipelineProperties : ComPtr<ID3D12StateObjectProperties>
 
                 - m_sceneMemory : shared_ptr<SceneMemoryManager>
 
+                + ~RayTracingPipeline()
                 + initialize(in device : ComPtr<ID3D12Device5>, 
                     in sceneMemory : shared_ptr<SceneMemoryManager>,
                     in width : uint32_t, in height : uint32_t) : void
-                + resize(in device : ComPtr<ID3D12Device5>, 
-                    in width : uint32_t, in height : uint32_t) : void
-                + dispatchRays(in device : ComPtr<ID3D12Device5>, 
-                    in directCommandList : ComPtr<ID3D12GraphicsCommandList4>) : void
+                + reset() : void
+                + getHandleView() : CbvSrvUavView
+                + getHandleHostView() : CbvSrvUavView
+                + getWidth() : uint32_t
+                + getHeight() : uint32_t
+                + resize(in width : uint32_t, in height : uint32_t) : void
+                + bindDescriptors(in directCommandList : ComPtr<ID3D12GraphicsCommandList4>,
+                    in cumputeFrameIndex : uint32_t) : void
+                + dispatchRays(in directCommandList : ComPtr<ID3D12GraphicsCommandList4>) : void
 
                 + getOutputTextureBuffer() : ComPtr<ID3D12Resource>
 
-                - initializeDeviceMemory(in device : ComPtr<ID3D12Device5>) : void
+                - initializeDeviceMemory() : void
 
-                - initializecbvSrvUavResources(in device : ComPtr<ID3D12Device5>) : void
-                - initializeRootSignature(in device : ComPtr<ID3D12Device5>) : void
-                - initializePipelineState(in device : ComPtr<ID3D12Device5>) : void
-                - initializeSBT(in device : ComPtr<ID3D12Device5>) : void
+                - initializecbvSrvUavResources() : void
+                - initializeRootSignature() : void
+                - initializePipelineState() : void
+                - initializeSBT() : void
             }
 
             class SbtTable
             {
                 - m_sbtBuffer : UploadBuffer
-                - m_rayGenShaderIdentifier : void*
-                - m_missShaderIdentifier : void*
-                - m_hitGroupIdentifier : void*
-
                 - m_shaderIdentifierSize : uint32_t
                 - m_shaderTableSize : uint32_t
                 - m_nbHitGroupTables : uint32_t
 
-                + initialize(in device : ComPtr<ID3D12Device5>, in rayGenShaderIdentifier : void*, 
-                    in missShaderIdentifier : void*, in hitGroupIdentifier : void*,
+                + initialize(in device : ComPtr<ID3D12Device5>, in shaderBank : ShaderBank, 
                     in handleView : CbvSrvUavView, in sceneMemory : SceneMemoryManager) : void
 
                 + getRaygenerationShaderRecord() : D3D12_GPU_VIRTUAL_ADDRESS_RANGE
@@ -925,8 +1337,12 @@ namespace fge {
             class CbvSrvUavView
             {
                 - m_cbvSrvUavHeap : ComPtr<ID3D12DescriptorHeap>
-                - m_outputTextureSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
-                - m_outputTextureHostSrvHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+                - m_outputTextureUavHandle : D3D12_GPU_DESCRIPTOR_HANDLE
+                - m_outputTextureHostUavHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+                - m_accumulatedLeftTextureUavHandle : D3D12_GPU_DESCRIPTOR_HANDLE
+                - m_accumulatedLeftTextureHostUavHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+                - m_accumulatedRightTextureUavHandle : D3D12_GPU_DESCRIPTOR_HANDLE
+                - m_accumulatedRightTextureHostUavHandle : D3D12_CPU_DESCRIPTOR_HANDLE
                 - m_tlasSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
                 - m_materialSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
                 - m_indirectionMaterialTableSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
@@ -939,21 +1355,36 @@ namespace fge {
 
                 - m_baseTextureSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
                 - m_baseTextureHostSrvHandle : D3D12_CPU_DESCRIPTOR_HANDLE
+                - m_baseTexture3DSrvHandle : D3D12_GPU_DESCRIPTOR_HANDLE
+                - m_baseTexture3DHostSrvHandle : D3D12_CPU_DESCRIPTOR_HANDLE
 
                 - m_handleIncrementationSize : uint32_t
 
-                + initialize(in device : ComPtr<ID3D12Device5>, in sceneMemory : SceneMemoryManager) : void
+                + ~CbvSrvUavView()
+                + initialize(in device : ComPtr<ID3D12Device5>, in sceneMemory : SceneMemoryManager,
+                    in heapFlag : D3D12_DESCRIPTOR_HEAP_FLAGS) : void
+                + reset() : void
 
                 + resizeOutput(in device : ComPtr<ID3D12Device5>, in sceneMemory : SceneMemoryManager) : void
 
                 + getDescriptorHeap() : ID3D12DescriptorHeap*
 
-                + getOutuputTextureSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getAccumulatedInputTextureHostUavHandle() : D3D12_CPU_DESCRIPTOR_HANDLE
+                + getAccumulatedOutputTextureHostUavHandle() : D3D12_CPU_DESCRIPTOR_HANDLE
+                + getAccumulatedLeftTextureHostUavHandle() : D3D12_CPU_DESCRIPTOR_HANDLE
+                + getAccumulatedRightTextureHostUavHandle() : D3D12_CPU_DESCRIPTOR_HANDLE
+
+                + getOutputTextureUavHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getAccumulatedInputTextureUavHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getAccumulatedOutputTextureUavHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getAccumulatedLeftTextureUavHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getAccumulatedRightTextureUavHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
                 + getTlasSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
                 + getMaterialSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
                 + getIndirectionMaterialTableSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
                 + getLightSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
                 + getBaseTextureSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
+                + getBaseTexture3DSrvHandle() : D3D12_GPU_DESCRIPTOR_HANDLE
 
                 + getVertexSrvHandle(in meshIndex : uint32_t) : D3D12_GPU_DESCRIPTOR_HANDLE
                 + setVertexSrvHandle(in device : ComPtr<ID3D12Device5>, 
@@ -970,6 +1401,11 @@ namespace fge {
                 + setTextureSrvHandle(in device : ComPtr<ID3D12Device5>, in textureIndex : uint32_t,
                     in textureResource: ID3D12Resource*) : void
                 - getTextureHostSrvHandle(in textureIndex) : D3D12_CPU_DESCRIPTOR_HANDLE
+                
+                + getTexture3DSrvHandle(in texture3DIndex : uint32_t) : D3D12_GPU_DESCRIPTOR_HANDLE
+                + setTexture3DSrvHandle(in device : ComPtr<ID3D12Device5>, in texture3DIndex : uint32_t,
+                    in texture3DResource: ID3D12Resource*) : void
+                - getTexture3DHostSrvHandle(in texture3DIndex) : D3D12_CPU_DESCRIPTOR_HANDLE
             }
 
             class ShaderProgram
@@ -994,7 +1430,11 @@ namespace fge {
             - m_nbElements : uint64_t
             - m_occupancyBuffer : vector<uint64_t>
 
+            + ~SlotAllocator()
+
             + initialize(in nbMaxElements : uint64_t, in strideSize : uint64_t) : void
+
+            + reset() : void
 
             + getNbMaxElements() : uint64_t
             + getNbElements() : uint64_t
@@ -1019,6 +1459,12 @@ namespace fge {
             + free(in index : uint64_t) : void
         }
 
+        class CompactIndexAllocator
+        {
+            + alloc() : void override
+        }
+        IndexAllocator <|-- CompactIndexAllocator
+
         class CompactStackAllocator
         {
             - m_nbMaxElements : uint64_t
@@ -1028,8 +1474,11 @@ namespace fge {
 
             + CompactStackAllocator()
             + CompactStackAllocator(in other : CompactStackAllocator)
+            + ~CompactStackAllocator()
 
             + initialize(in nbMaxElements : uint64_t, in strideSize : uint64_t) : void
+
+            + reset() : void
 
             + getBuffer() : uint8_t*
             + getBufferTotalSize() : uint64_t
@@ -1057,9 +1506,12 @@ namespace fge {
 
             + SafeCompactStackAllocator()
             + SafeCompactStackAllocator(in other : SafeCompactStackAllocator)
+            + ~SafeCompactStackAllocator()
 
             + initialize(in nbMaxElements : uint64_t, in strideSize : uint64_t) : void
 
+            + reset() : void
+ 
             + getBuffer() : uint8_t*
             + getBufferTotalSize() : uint64_t
             + getNbElements() : uint64_t
@@ -1088,8 +1540,11 @@ namespace fge {
 
             + PageBasedAllocator()
             + PageBasedAllocator(in other : PageBasedAllocator)
+            + ~PageBasedAllocator()
 
             + initialize(in nbMaxElements : uint64_t, in strideSize : uint64_t) : void
+
+            + reset() : void
 
             + getBuffer() : uint8_t*
             + getBufferTotalSize() : uint64_t
@@ -1118,8 +1573,12 @@ namespace fge {
 
             + SafePageBasedAllocator()
             + SafePageBasedAllocator(in other : SafePageBasedAllocator)
+            + SafePageBasedAllocator(in out other : SafePageBasedAllocator)
+            + ~SafePageBasedAllocator()
 
             + initialize(in nbMaxElements : uint64_t, in strideSize : uint64_t) : void
+
+            + reset() : void
 
             + getBuffer() : uint8_t*
             + getBufferTotalSize() : uint64_t
@@ -1197,26 +1656,46 @@ namespace fge {
         class XmlReader
         {
             + m_sceneDescription : SceneDescription
+            + m_texturePathFiles : vector<string>
+            + m_pathTextureToTextureIndex : unordered_map<string, uint32_t>
 
             + XmlReader(in pathFile : string)
             + XmlReader(in root : XMLElement)
 
+            - loadAll(in root : XMLElement) : void
+            - loadBackground(in root : XMLElement) : void
             - loadCamera(in root : XMLElement) : void
             - loadMeshes(in root : XMLElement) : void
+            - loadVolumes(in root : XMLElement) : void
             - loadInstances(in root : XMLElement) : void
+            - loadTextures() : void
             - loadEmitters(in root : XMLElement) : void
+            - loadRenderConfig(in root : XMLElement) : void
             + {static} loadVector3D(in root : XMLElement, in name : string) : XMFLOAT3
             + {static} loadColorRGB(in root : XMLElement, in name : string) : XMFLOAT3
+            + {static} loadFormat(in root : XMLElement, in name : string) : DXGI_FORMAT
+            + {static} loadBool(in root : XMLElement, in name : string) : bool
+        }
+
+        enum FgeApplicationType
+        {
+            + FGE
+            + ANARI
         }
 
         struct SceneDescription
         {
+            + m_background : Background
             + m_meshes : unordered_map<LogicalIndex, Mesh>
+            + m_volumes : unordered_map<LogicalIndex, Volume>
             + m_instances : unordered_map<LogicalIndex, Instance>
             + m_lights : vector<Light>
             + m_materials : vector<Material>
             + m_textures : vector<Texture>
+            + m_textures3D : vector<Texture>
             + m_camera : Camera
+            + m_fgeApplicationType : FgeApplicationType
+            + m_renderConfig : variant<RenderConfig, AnariRenderConfig>
         }
 
         class ObjReader
@@ -1238,6 +1717,40 @@ namespace fge {
                 in out nameMaterialToTextureIndex : unordered_map<string, uint32_t>,
                 in out pathTextureToTextureIndex : unordered_map<string, uint32_t>,
                 in out nameMaterialToMaterialIndex : unordered_map<string, uint32_t>) : void
+        }
+
+        class VolumeReader
+        {
+            + m_volume : Volume
+            + m_texture3D : Texture
+            + m_texturePathFiles : vector<string>
+            + m_pathTextureToTextureIndex : unordered_map<string, uint32_t>
+
+            + VolumeReader(in pathFile : string, in transfertFunctionPathFile : string, 
+                in width : float, in height : float, in depth : float, 
+                in volumeMin : float[3], in volumeMax[3], in format : DXGI_FORMAT, in isLittleEndian : bool, 
+                in scalarScale : float)
+
+            + {static} read(in pathFile : string, in transfertFunctionPathFile : string, 
+                in width : float, in height : float, in depth : float, 
+                in volumeMin : float[3], in volumeMax[3], in format : DXGI_FORMAT, in isLittleEndian : bool, 
+                in scalarScale : float, out volume : Volume, out texture3D : Texture, 
+                in out texturePathFiles : vector<string>, 
+                in out pathTextureToTextureIndex : unordered_map<string, uint32_t>) : void
+
+            - {static} readRawVolume(in pathFile : string, in transfertFunctionPathFile : string, 
+                in width : float, in height : float, in depth : float, 
+                in volumeMin : float[3], in volumeMax[3], in format : DXGI_FORMAT, in isLittleEndian : bool, 
+                in scalarScale : float, out volume : Volume, out texture3D : Texture, 
+                in out texturePathFiles : vector<string>, 
+                in out pathTextureToTextureIndex : unordered_map<string, uint32_t>) : void
+
+            - {static} readRawCube(in pathFile : string, in transfertFunctionPathFile : string, 
+                in width : float, in height : float, in depth : float, 
+                in volumeMin : float[3], in volumeMax[3], in format : DXGI_FORMAT, in isLittleEndian : bool, 
+                in scalarScale : float, out volume : Volume, out texture3D : Texture, 
+                in out texturePathFiles : vector<string>, 
+                in out pathTextureToTextureIndex : unordered_map<string, uint32_t>) : void
         }
 
         class MtlReader
@@ -1266,11 +1779,107 @@ namespace hlsl
         + cameraRayPayloadGetColor(in payload : RayPayload) : float4
     }
 
+    struct PixelAccumulator
+    {
+        + m_accumulatedColor : float3
+        + m_sampleIndex : uint
+        + m_rngSeed : uint
+        + m_pixelIndex : uint2
+        + m_pixelDimension : uint2
+    }
+
+    struct Intersection
+    {
+        + m_worldPosition : float3
+        + m_tbnShadingNormal : float3
+        + m_worldWi : float3
+        + m_tbn : float3x3
+        + m_uvw : float3
+    }
+
+    struct LightAccumulator
+    {
+        + m_accumulatedRadiance : float3
+        + m_sampleIndex : uint
+    }
+
+    struct LightSample
+    {
+        + m_lightIndex : uint
+        + m_worldWo : float3
+        + m_radiance : float3
+        + m_surfaceColor : float3
+    }
+
     struct RayPayload
     {
-        + m_type : uint32_t
-        + m_padding : uint32_t[7]
+        + m_type : uint
+        + m_padding : uint[11]
     }
+
+    struct MainRayPayload
+    {
+        - m m_type : uint
+
+        - m_nbBounds : uint
+        - m_rngSeed : uint
+        - _padding0 : uint
+
+        - m_color : float3
+        - _padding1 : float
+
+        - m_weight : float3
+        - _padding2 : float
+
+        + mainRayPayloadGetNbBounds() : uint
+        + mainRayPayloadSetNbBounds(in nbBounds : uint) : void
+        + mainRayPayloadGetRngSeed() : uint
+        + mainRayPayloadSetRngSeed(in rngSeed : uint) : void
+        + mainRayPayloadGetColor() : float3
+        + mainRayPayloadSetColor(in color : float3) : void
+        + mainRayPayloadGetWeight() : float3
+        + mainRayPayloadSetWeight(in color : float3) : void
+    }
+    RayPayload <|-- MainRayPayload
+
+    struct ShadowRayPayload
+    {
+        - m_type : uint
+        - m_nbBounds : uint
+        - m_instanceId : uint
+        - m_maxHitDistance : float
+        - m_weight : float3
+        - _padding0 : float
+        - _padding1 : float4
+
+        + shadowRayPayloadGetNbBounds() : uint
+        + shadowRayPayloadSetNbBounds(in nbBounds : uint) : void
+        + shadowRayPayloadGetInstanceId() : uint
+        + shadowRayPayloadSetInstanceId(in instanceId : uint) : void
+        + shadowRayPayloadGetMaxHitDistance() : float
+        + shadowRayPayloadSetMaxHitDistance(in hitDistance : float) : void
+        + shadowRayPayloadGetWeight() : float3
+        + shadowRayPayloadSetWeight(in weight : float3) : void
+    }
+    RayPayload <|-- ShadowRayPayload
+
+    struct NearestRayPayload
+    {
+        - m_type : uint
+        - m_nbBounds : uint
+        - m_instanceId : uint
+        - m_hitDistance : float
+        - _padding0 : float4
+        - _padding1 : float4
+
+        + nearestRayPayloadGetNbBounds() : uint
+        + nearestRayPayloadSetNbBounds(in nbBounds : uint) : void
+        + nearestRayPayloadGetInstanceId() : uint
+        + nearestRayPayloadSetInstanceId(in instanceId : uint) : void
+        + nearestRayPayloadGetHitDistance() : float
+        + nearestRayPayloadSetHitDistance(in hitDistance : flaot) : void
+    }
+    RayPayload <|-- NearestRayPayload
 
     struct Light
     {
@@ -1295,6 +1904,23 @@ namespace hlsl
         + m_materialIndex : uint
     }
 
+    struct VolumeData
+    {
+        + m_mins : float3
+        + m_scalarMin : float
+        + m_maxs : float3
+        + m_scalarMax : float
+        + m_texture3DIndex : uint
+        + m_transferFunctionTextureIndex : uint
+        + _padding2 : float2
+    }
+
+    struct VolumeIntersectionAttributes
+    {
+        + tEntry : float
+        + tExit : float
+    }
+
     struct Material
     {
         + m_reflectance : float3
@@ -1311,6 +1937,7 @@ namespace hlsl
         + m_position : float4
         + m_forward : float4
         + m_up : float4
+        + m_right : float4
         + m_physicalWidth : float4
         + m_physicalHeight : float
         + m_depth : float
@@ -1319,7 +1946,147 @@ namespace hlsl
 
     struct DeviceConstantInformations
     {
-        + m_camera : DeviceCamera
+        + m_position : float4
+        + m_forward : float4
+        + m_up : float4
+        + m_right : float4
+        + m_physicalWidth : float4
+        + m_physicalHeight : float
+        + m_depth : float
+
+        + m_nbLights : uint
+
+        + m_backgroundTextureIndex : uint
+        + m_integratorType : uint
+        + m_spp : uint
+        + m_sppIndex : uint
+    }
+
+    namespace maths
+    {
+        + computeRadiance(in color : float3) : float
+        + computeUv(in v0 : Vertex, in v1 : Vertex, in v2 : Vertex,
+            in attr : BuiltInTriangleIntersectionAttributes) : float2
+        + computeNormal(in v0 : Vertex, in v1 : Vertex, in v2 : Vertex,
+            in attr : BuiltInTriangleIntersectionAttributes) : float3
+        + computeHitPosition(in v0 : Vertex, in v1 : Vertex, in v2 : Vertex,
+            in attr : BuiltInTriangleIntersectionAttributes) : float3
+        + computeTBN(in v0 : Vertex, in v1 : Vertex, in v2 : Vertex,
+            in attr : BuiltInTriangleIntersectionAttributes) : float3x3
+
+        + isReflectance(in tbnWi : float3, in tbnWo : float3) : bool
+        + isTransmittance(in tbnWi : float3, in tbnWo : float3) : bool
+        + isReflectance(in wi : float3, in normal : float3, in wo : float3) : bool
+        + isTransmittance(in wi : float3, in normal : float3, in wo : float3) : bool
+
+        + randomFloat(in out seed : uint) : float
+        + randomFloat(in out rayPayload : RayPayload) : float
+        + randomFloat2(in out seed : uint) : float2
+        + randomFloat2(in out rayPayload : RayPayload) : float2
+        + randomFloat3(in out seed : uint) : float3
+        + randomFloat3(in out rayPayload : RayPayload) : float3
+        + randomUint(in out seed : uint) : uint
+        + randomUint(in out rayPayload : RayPayload) : uint
+    }
+
+    namespace basic
+    {
+
+    }
+
+    namespace integrator
+    {
+        class None
+        {
+            + onRayGen(in pixelIndex : uint2, in pixelDimension : uint2) : void
+
+            - {virtual} initializePixelAccumulator(out pixelAccumulator : PixelAccumulator, 
+                in pixelIndex : uint2, in pixelDimension : uint2) : void
+            - {virtual} initializeRayDesc(in out pixelAccumulator : PixelAccumulator, out rayDesc : RayDesc) : void
+            - {virtual} initializeRayPayload(out rayPayload : RayPayload, in rngSeed : uint) : void
+            - {virtual} spawnRay(in pixelAccumulator : PixelAccumulator, 
+                in rayDesc : RayDesc, in out rayPayload : RayPayload) : void
+            - {virtual} addPixelSample(in out pixelAccumulator : PixelAccumulator, in payload : RayPayload) : void
+            - {virtual} iterateNextPixelSample(in out pixelAccumulator : PixelAccumulator) : bool
+            
+
+            + onClosestHitSurface(in out RayPayload : rayPayload, in attr : BuiltInTriangleIntersectionAttributes) : void
+
+            - {virtual} initializeIntersection(in attr : BuiltInTriangleIntersectionAttributes, out intersection Intersection) : void
+            - {virtual} initializeLightAccumulator(in rayPayload : RayPayload, out lightAccumulator : LightAccumulator) : void
+            
+            - {virtual} hasNextLight(in lightAccumulator : LightAccumulator) : bool
+            - {virtual} iterateNextLight(inout RayPayload rayPayload, in intersection Intersection, 
+                in out lightAccumulator : LightAccumulator, out lightSample : LightSample) : void
+            - {virtual} sampleLight(in intersection : Intersection, in out lightSample : LightSample) : void
+            - {virtual} sampleBsdf(in intersection : Intersection, in out lightSample : LightSample) : void
+            - {virtual} addLightSample(in out lightAccumulator : LightAccumulator, in lightSample : LightSample) : void
+
+            - {virtual} addIntersectionSample(in out rayPayload : RayPayload, in lightAccumulator : LightAccumulator) : void
+            - {virtual} hasNextRay(in rayPayload : RayPayload) : bool
+            - {virtual} iterateNextRay(in out rayPayload : RayPayload, in intersection : Intersection) : void
+
+
+            + onAnyHitVolume() : void
+        }
+
+        class PhongIntegrator
+        {
+            - {virtual} phongIterateNextPixelSample(in out pixelAccumulator : PixelAccumulator) : bool
+
+            
+            - {virtual} phongHasNextLight(in lightAccumulator : LightAccumulator) : bool
+            - {virtual} phongIterateNextLight(inout RayPayload rayPayload, in intersection Intersection, 
+                in out lightAccumulator : LightAccumulator, out lightSample : LightSample) : void
+            - {virtual} phongSampleLight(in intersection : Intersection, in out lightSample : LightSample) : void
+            - {virtual} phongSampleBsdf(in intersection : Intersection, in out lightSample : LightSample) : void
+
+            - {virtual} phongIterateNextRay(in out rayPayload : RayPayload, in intersection : Intersection) : void
+        }
+
+        class PathtracerIntegrator
+        {
+            - {virtual} pathtracerIterateNextPixelSample(in out pixelAccumulator : PixelAccumulator) : bool
+
+            
+            - {virtual} pathtracerHasNextLight(in lightAccumulator : LightAccumulator) : bool
+            - {virtual} pathtracerIterateNextLight(inout RayPayload rayPayload, in intersection Intersection, 
+                in out lightAccumulator : LightAccumulator, out lightSample : LightSample) : void
+            - {virtual} pathtracerSampleLight(in intersection : Intersection, in out lightSample : LightSample) : void
+            - {virtual} pathtracerSampleBsdf(in intersection : Intersection, in out lightSample : LightSample) : void
+
+            - {virtual} pathtracerIterateNextRay(in out rayPayload : RayPayload, in intersection : Intersection) : void
+        }
+    }
+
+    namespace surface
+    {
+        class None
+        {
+            + {virtual} surfaceGetNormalDeformation(in uv : float2, out normal : float3) : void
+        
+            + {virtual} bsdfEval(in intersection : Intersection, 
+                in tbnWo : float3, out color : float3, in surfaceLobe : uint) : void
+            + {virtual} bsdfSample(in rayPayload : RayPayload, in intersection : Intersection, 
+                out tbnWo : float3, out pdf : float3, in surfaceLobe : uint) : void
+            + {virtual} bsdfPdf(in intersection : Intersection, 
+                in tbnWo : float3, out pdf : float3, in surfaceLobe : uint) : void
+        }
+
+        class PhongSurface
+        {
+        }
+        None <|-- PhongSurface
+
+        class NormalSurface
+        {
+        }
+        None <|-- NormalSurface
+    }
+
+    namespace volume
+    {
+
     }
 }
 
@@ -1333,8 +2100,18 @@ namespace fgewa
     class AnariApplication
     {
         - m_renderer : MainRenderer
-        - m_library : ANARILibrary
-        - m_device : ANARIDevice
+        - m_library : Library
+        - m_device : shared_ptr<Device>
+        - m_capability : shared_ptr<ImplementationCapability>
+
+        - m_dxrAdapter : ComPtr<IDXGIAdapter4>
+        - m_dxrDevice : ComPtr<ID3D12Device5>
+        - m_nbFrames : uint32_t
+        - m_isTearingSupport : bool
+        - m_isVSync : bool
+
+        + getDevice() : shared_ptr<Device>
+        + getCapability() : shared_ptr<ImplementationCapability>
 
         + {virtual} initializeSystem() : void
         + {virtual} initializeMainRenderer(in hWnd : HWND, in width : uint32_t, 
@@ -1345,37 +2122,75 @@ namespace fgewa
         + {virtual} getScene() : shared_ptr<FgeScene>
         + {virtual} resize(in width : uint32_t, in height : uint32_t) : void
 
-        - initializeAnariResources() : void
-        - releaseAnariResources() : void
+        + {static} anariCallback(in userData : void*, in device : ANARIDevice, in source : ANARIObject,
+            in sourceType : ANARIDataType, in severity : ANARIStatusSeverity, in code : ANARIStatusCode,
+            in message : char*) : void
+
+        - initializeAnariResources(in renderConfig : AnariRenderConfig) : void
+
+        - initializeDirectXDebugLayer() : void
+        - initializeDirectXResources() : void
     }
     FgeApplication <|-- AnariApplication
     
     namespace render
     {
+        struct AnariRenderConfig
+        {
+            + m_libraryName : string
+            + m_renderAlgorithm : string
+            + m_backgroundColor : XMFLOAT3
+            + m_ambientRadiance : float
+        }
+
         class MainRenderer
         {
-            - m_renderer : Renderer
-            - m_frame : Frame
             - m_scene : shared_ptr<AnariScene>
             - m_width : uint32_t
             - m_height : uint32_t
+            - m_device : shared_ptr<Device>
+            - m_capability : shared_ptr<ImplementationCapability>
 
-            + initialize(in device : ANARIDevice, in width : uint32_t, in height : uint32_t,
-                in out sceneDescription : SceneDescription)
+            - m_dxrDevice : ComPtr<ID3D12Device5>
+            - m_directCommandQueue : fge::CommandQueue
+            - m_presentFrame : unique_ptr<PresentFrame>
+            - m_frameComposer : fge::FrameComposer
+            - m_barriers : fge::BarrierBatch
+            - m_frames : vector<fge::FrameContext>
+            - m_renderFence : ComPtr<ID3D12Fence>
+            - m_renderEvent : HANDLE
+            - m_renderValue : uint64_t
+            - m_currentIdFrame : uint32_t
+
+            + initialize(in device : shared_ptr<Device>, in capability : shared_ptr<ImplementationCapability>, 
+                in width : uint32_t, in height : uint32_t, in out sceneDescription : SceneDescription,
+                in hWnd : HWND, in dxrDevice : ComPtr<ID3D12Device5>, in nbFrames : uint32_t) : void
 
             + getScene() : shared_ptr<AnariScene>
             + renderFrame() : void
             + resize(in width : uint32_t, in height : uint32_t) : void
+
+            - initializeDeviceResources(in hWnd : HWND, in device : ComPtr<ID3D12Device5>, 
+                in width : uint32_t, in height : uint32_t, in nbFrames : uint32_t) : void
+
+            - computeAnariFrame() : void
         }
 
         class AnariScene
         {
-            - m_world : World
-            - m_camera : Camera
-            - m_lights : unordered_map<LogicalIndex, fge::Light>
-            - m_meshes : unordered_map<LogicalIndex, fge::Mesh>
-            - m_instances : unordered_map<LogicalIndex, fge::Instance>
-            - m_materials : unordered_map<LogicalIndex, fge::Material>
+            - m_frame : Frame
+            - m_lights : vector<Light>
+            - m_instances : vector<Instance>
+            - m_textures2D : unordered_map<LogicalIndex, Texture2D>
+            - m_textures3D : unordered_map<LogicalIndex, Texture3D>
+            - m_fgeLights : unordered_map<LogicalIndex, fge::Light>
+            - m_fgeMeshes : unordered_map<LogicalIndex, fge::Mesh>
+            - m_fgeVolumes : unordered_map<LogicalIndex, fge::Volume>
+            - m_fgeInstances : unordered_map<LogicalIndex, fge::Instance>
+            - m_fgeMaterials : unordered_map<LogicalIndex, fge::Material>
+            - m_fgeTextures2D : unordered_map<LogicalIndex, fge::Texture>
+            - m_fgeTextures3D : unordered_map<LogicalIndex, fge::Texture>
+            - m_device : shared_ptr<Device>
 
             + {virtual} addLight(in newLight : Light, in lightIndex : LogicalIndex) : void
             + {virtual} modifyLight(in newLight : Light, in lightIndex : LogicalIndex) : void
@@ -1393,12 +2208,84 @@ namespace fgewa
 
             + {virtual} setCamera(in camera : Camera) : void
 
-            + moveAllToAnari() : void
+            + {virtual} getNbMaxMeshes() : uint32_t
+            + {virtual} getNbMaxSubMeshes() : uint32_t
+            + {virtual} getNbMaxInstances() : uint32_t
+            + {virtual} getNbMaxMaterials() : uint32_t
+            + {virtual} getNbMaxTextures() : uint32_t
+            + {virtual} getNbMaxLights() : uint32_t
+            
+            + buildScene(in device : shared_ptr<Device>, in sceneDescription : SceneDescription,
+                in uint32_t width, in uint32_t height) : void
+
+            + getFrame() : Frame
         }
         FgeScene <|-- AnariScene
 
+        class PresentFrame
+        {
+            # m_device : shared_ptr<Device>
+            # m_dxrDevice : ComPtr<ID3D12Device5>
+            # m_bufferTargetDescription : D3D12_RESOURCE_DESC
+            + {virtual} initialize(in device : shared_ptr<Device>, in hWnd : HWND, 
+                in dxrDevice : ComPtr<ID3D12Device5>,  in commandQueue : ID3D12CommandQueue*
+                in width : uint32_t, in height : uint32_t, in nbBackBuffers : uint32_t) : void
+            + {virtual} resize(in width : uint32_t, in height : uint32_t) : void
+            + {virtual} copyOutputToRTV(in commandList : ID3D12GraphicsCommandList4*,
+                in frame : Frame) : void
+        }
+        SwapChainPresenter <|-- PresentFrame
+
+        class PresentHostFrame
+        {
+            - m_anaryUploadBuffer : fge::UploadBuffer
+            + {virtual} initialize(in device : shared_ptr<Device>, in hWnd : HWND, 
+                in dxrDevice : ComPtr<ID3D12Device5>,  in commandQueue : ID3D12CommandQueue*
+                in width : uint32_t, in height : uint32_t, in nbBackBuffers : uint32_t) : void
+            + {virtual} copyOutputToRTV(in commandList : ID3D12GraphicsCommandList4*,
+                in frame : Frame) : void
+        }
+        PresentFrame <|-- PresentCudaFrame
+
+        class PresentCudaFrame
+        {
+            + {virtual} initialize(in device : shared_ptr<Device>, in hWnd : HWND, 
+                in dxrDevice : ComPtr<ID3D12Device5>,  in commandQueue : ID3D12CommandQueue*
+                in width : uint32_t, in height : uint32_t, in nbBackBuffers : uint32_t) : void
+            + {virtual} copyOutputToRTV(in commandList : ID3D12GraphicsCommandList4*,
+                in frame : Frame) : void
+
+            - copyWithFlipYAxis(out d_dst : uchar4*, in dstPitchBytes : size_t, in d_src : uchar4*,
+                in srcPitchBytes : size_t, in width : int, in height : int) : void
+        }
+        PresentFrame <|-- PresentCudaFrame
+
+        class PresentDirectX12Frame
+        {
+            - m_sharedTexture : ComPtr<ID3D12Resource>
+
+            + {virtual} initialize(in device : shared_ptr<Device>, in hWnd : HWND, 
+                in dxrDevice : ComPtr<ID3D12Device5>,  in commandQueue : ID3D12CommandQueue*
+                in width : uint32_t, in height : uint32_t, in nbBackBuffers : uint32_t) : void
+            + {virtual} copyOutputToRTV(in commandList : ID3D12GraphicsCommandList4*,
+                in frame : Frame) : void
+        }
+        PresentFrame <|-- PresentDirectX12Frame
+
         namespace data
         {
+            class ImplementationCapability
+            {
+                - m_hasOutputCudaBuffer : bool
+                - m_hasOutputDirectX12Buffer : bool
+
+                + ImplementationCapability(in hasOutputCudaBuffer : bool, in hasOutputDiretX12Buffer : bool)
+                + {static} fromLibraryName(in name : string) : ImplementationCapability
+
+                + hasOutputCudaBuffer() : bool
+                + hasOutputDirectX12Buffer() : bool
+            }
+
             class Library
             {
                 - m_library : ANARILibrary
@@ -1407,6 +2294,7 @@ namespace fgewa
                 + initialize(in name : string, in callBack : ANARIStatusCallback) : void
                 + reset() : void
                 + getHandle() : ANARILibrary
+                + logAvailableDevices() : void
             }
 
             class Device
@@ -1417,17 +2305,27 @@ namespace fgewa
                 + initialize(in library : Library) : void
                 + reset() : void
                 + getHandle() : ANARIDevice
+                + logSupportedExtensions() : void
             }
 
             class Frame
             {
-                - m_frame : ANARIFrame
+                - m_frameHandle : ANARIFrame
+                - m_camera : Camera
+                - m_world : World
+                - m_renderer : Renderer
                 - m_device : shared_ptr<Device>
 
                 + ~Frame()
-                + initialize(in device : shared_ptr<Device>) : void
+                + initialize(in device : shared_ptr<Device>, in capability : ImplementationCapability, 
+                    in out camera : Camera, in out world : World, in out renderer : Renderer, 
+                    in width : uint32_t, int height : uint32_t) : void
                 + reset() : void
                 + getHandle() : ANARIFrame
+
+                + getCamera() : Camera
+                + getWorld() : World
+                + getRenderer() : Renderer
             }
 
             class Renderer
@@ -1436,31 +2334,40 @@ namespace fgewa
                 - m_device : shared_ptr<Device>
 
                 + ~Renderer()
-                + initialize(in device : shared_ptr<Device>) : void
+                + initialize(in device : shared_ptr<Device>, in renderConfig : AnariRenderConfig) : void
                 + reset() : void
                 + getHandle() : ANARIRenderer
+                + logAvailableRenderers() : void
+                + logSupportedParameters()
             }
 
             class World
             {
-                - m_world : ANARIWorld
+                - m_worldHandle : ANARIWorld
+                - m_handleInstances : ANARIArray1D
+                - m_handleLights : ANARIArray1D
                 - m_device : shared_ptr<Device>
 
                 + ~World()
-                + initialize(in device : shared_ptr<Device>) : void
+                + initialize(in device : shared_ptr<Device>, in instances : vector<Instance>,
+                    in lights : vector<Light>) : void
                 + reset() : void
                 + getHandle() : ANARIWorld
             }
 
             class Camera
             {
-                - m_camera : ANARICamera
+                - m_cameraHandle : ANARICamera
+                - m_cameraData : fge::Camera
                 - m_device : shared_ptr<Device>
 
                 + ~Camera()
                 + initialize(in device : shared_ptr<Device>, in cameraData : fge::Camera) : void
                 + reset() : void
                 + getHandle() : ANARICamera
+
+                + getCameraData() : fge::Camera
+                + setCameraData(in camera : fge::Camera) : void
             }
 
             class Light
@@ -1470,42 +2377,65 @@ namespace fgewa
 
                 + ~Light()
                 + initialize(in device : shared_ptr<Device>, in lightData : fge::Light) : void
+                + initializeHdri(in device : shared_ptr<Device>, in texture2D : Texture2D) : void
                 + reset() : void
                 + getHandle() : ANARILight
             }
 
             class Instance
             {
-                - m_instance : ANARIInstance
-                - m_meshIndex : LogicalIndex
+                - m_instanceHandle : ANARIInstance
+                - m_group : Group
                 - m_device : shared_ptr<Device>
 
                 + ~Instance()
-                + initialize(in device : shared_ptr<Device>) : void
+                + initialize(in device : shared_ptr<Device>, in out group : Group,
+                    in instanceData : fge::Instance) : void
+                + setTransformMatrix(in transform : XMMATRIX) : void
                 + reset() : void
                 + getHandle() : ANARIInstance
-                + getGroupIndex() : LogicalIndex
             }
 
             class Group
             {
                 - m_group : ANARIGroup
+                - m_handleSurfaces : ANARIArray1D
+                - m_surfaces : vector<Surface>
+                - m_handleVolumes : ANARIArray1D
+                - m_volumes : vector<Volume>
                 - m_device : shared_ptr<Device>
 
                 + ~Group()
-                + initialize(in device : shared_ptr<Device>, in surfaces : vector<Surfaces>) : void
+                + initialize(in device : shared_ptr<Device>, in out surfaces : vector<Surface>) : void
+                + initialize(in device : shared_ptr<Device>, in out volumes : vector<Volume>) : void
                 + reset() : void
                 + getHandle() : ANARIGroup
+            }
+
+            class Volume
+            {
+                - m_volume : ANARIVolume
+                - m_spatialField : ANARISpatialField
+                - m_device : shared_ptr<Device>
+
+                + ~Volume()
+                + initialize(in device : shared_ptr<Device>, in volumeData : fge::Volume,
+                    in texutes3D : unordered_map<LogicalIndex, Texture3D>,
+                    in fgeTextures2D : unordered_map<LogicalIndex, fge::Texture>) : void
+                + reset() : void
+                + getVolumeHandle() : ANARIVolume
             }
 
             class Surface
             {
                 - m_surface : ANARISurface
+                - m_geometry : Geometry
+                - m_material : Material
                 - m_device : shared_ptr<Device>
 
                 + ~Surface()
-                + initialize(in device : shared_ptr<Device>, in geometry : Geometry,
-                    in material : Material) : void
+                + initialize(in device : shared_ptr<Device>, in out geometry : Geometry,
+                    in out material : Material) : void
                 + reset() : void
                 + getHandle() : ANARISurface
             }
@@ -1516,7 +2446,7 @@ namespace fgewa
                 - m_device : shared_ptr<Device>
 
                 + ~Geometry()
-                + initialize(in device : shared_ptr<Device>, in meshData : fge::Mesh) : void
+                + initialize(in device : shared_ptr<Device>, in meshData : fge::Mesh, in subMeshId : uint32_t) : void
                 + reset() : void
                 + getHandle() : ANARIGeomertry
                 + getMemoryHandle() : ANARIGeomertry*
@@ -1528,17 +2458,601 @@ namespace fgewa
                 - m_device : shared_ptr<Device>
 
                 + ~Material()
-                + initialize(in device : shared_ptr<Device>, in material : Material) : void
+                + initialize(in device : shared_ptr<Device>, in material : fge::Material,
+                    in textures2D : unordered_map<LogicalIndex, Texture2D>) : void
                 + reset() : void
                 + getHandle() : ANARIMaterial
                 + getMemoryHandle() : ANARIMaterial*
             }
+
+            class Texture2D
+            {
+                - m_textureHandle : ANARIArray2D
+                - m_samplerHandle : ANARISampler
+                - m_device : shared_ptr<Device>
+
+                + ~Texture2D()
+                + initialize(in device : shared_ptr<Device>, in textureData : fge::Texture) : void
+                + reset() : void
+                + getSamplerHandle() : ANARISampler
+                + getArray2DHandle() : ANARIArray2D
+            }
+
+            class Texture3D
+            {
+                - m_texture3DHandle : ANARIArray3D
+                - m_emptyData : vector<uint8_t>
+                - m_width : uint32_t
+                - m_height : uint32_t
+                - m_depth : uint32_t
+                - m_device : shared_ptr<Device>
+
+                + ~Texture3D()
+                + initialize(in device : shared_ptr<Device>, in textureData : fge::Texture) : void
+                + reset() : void
+                + getTexture3DHandle() : ANARIArray3D
+                + getWidth() : uint32_t
+                + getHeight() : uint32_t
+                + getDepth() : uint32_t
+            }
         }
     }
 
-    namespace resources
+    namespace fgeia
     {
+        class Library
+        {
+            + Library(in lib : void*, in defaultStatusCB : ANARIStatusCallback, in statusCBPtr : void*)
+            + newDevice(in subtype : char*) : ANARIDevice
+            + getDeviceExtensions(in deviceType : char*) : char**
+        }
+        anari::LibraryImpl <|-- Library
 
+        class Device
+        {
+            + Device(in lib : ANARILibrary, in subtype : string = "default")
+            + {virtual} ~Device()
+
+            + {virtual} newArray1D(in appMemory : const void*, in deleter : ANARIMemoryDeleter,
+                in userData : const void*, in type : ANARIDataType, in numItems : uint64_t) : ANARIArray1D
+
+            + {virtual} newArray2D(in appMemory : const void*, 
+                in deleter : ANARIMemoryDeleter, in userData : const void*, 
+                in type : ANARIDataType, in numItems1 : uint64_t, in numItems2 : uint64_t) : ANARIArray2D
+
+            + {virtual} newArray3D(in appMemory : const void*, in deleter : ANARIMemoryDeleter,
+                in userData : const void*, in type : ANARIDataType, in numItems1 : uint64_t, 
+                in numItems2 : uint64_t, in numItems3 : uint64_t) : ANARIArray3D
+
+            + {virtual} newLight(in subtype : const char*) : ANARILight
+            + {virtual} newCamera(in subtype : const char*) : ANARICamera
+            + {virtual} newGeometry(in subtype : const char*) : ANARIGeometry
+            + {virtual} newSpatialField(in subtype : const char*) : ANARISpatialField
+            + {virtual} newSurface() : ANARISurface
+            + {virtual} newVolume(in subtype : const char*) : ANARIVolume
+            + {virtual} newMaterial(in subtype : const char*) : ANARIMaterial
+            + {virtual} newSampler(in subtype : const char*) : ANARISampler
+            + {virtual} newGroup() : ANARIGroup
+            + {virtual} newInstance(in subtype : const char*) : ANARIInstance
+            + {virtual} newWorld() : ANARIWorld
+            + {virtual} newFrame() : ANARIFrame
+            + {virtual} newRenderer(in subtype : const char*) : ANARIRenderer
+
+            + {virtual} getObjectSubtypes(in type : ANARIDataType) : const char**
+            + {virtual} getObjectInfo(in objectType : ANARIDataType, in objectSubtype : const char*, 
+                in infoName : const char*, in infoType : ANARIDataType) : const void*
+
+            + {virtual} getParameterInfo(in objectType : ANARIDataType, in objectSubtype : const char*, 
+                in parameterName : const char*, in parameterType : ANARIDataType,
+                in infoName : const char*, in infoType : ANARIDataType) : const void*
+
+            # {virtual} deviceCommitParameters() : void
+            # {virtual} deviceGetProperty(in name : const char*, in type : ANARIDataType, 
+                out mem : void*, in size : uint64_t, in flags : uint32_t) : int
+        }
+        helium::BaseDevice <|-- Device
+
+        class FgeGlobalState
+        {
+            - m_adapter : ComPtr<IDXGIAdapter4>
+            - m_device : ComPtr<ID3D12Device5>
+            - m_renderEngine : fge::RenderEngine
+            - m_fgeScene : shared_ptr<fge::Scene>
+            - m_isRenderEngineInitialized : bool
+            + m_sceneDescription : fge::SceneDescription
+
+            + m_lightIndexAllocator : fge::IndexAllocator
+            + m_meshIndexAllocator : fge::IndexAllocator
+            + m_volumeIndexAllocator : fge::IndexAllocator
+            + m_instanceIndexAllocator : fge::IndexAllocator
+            + m_textureIndexAllocator : fge::IndexAllocator
+            + m_texture3DIndexAllocator : fge::IndexAllocator
+            + m_materialIndexAllocator : fge::IndexAllocator
+
+            + FgeGlobalState(in device : ANARIDevice)
+            + ~FgeGlobalState()
+            + reset() : void
+
+            - initializeDebugLayer() : void
+            - initializeDirectXResources() : void
+
+            + getRenderEngine() : fge::RenderEngine
+            + getSceneDescription() : fge::SceneDescription
+            + getDevice() : ComPtr<ID3D12Device5>
+
+            + startRender(in width : uint32_t, in height : uint32_t) : void
+
+            + setCamera(in fgeCamera : fge::Camera) : void
+            + setLight(in fgeLight : fge::Light, in index : fge::LogicalIndex) : void
+            + setMesh(in fgeMesh : fge::Mesh, in index : fge::LogicalIndex) : void
+            + setVolume(in fgeVolume : Vfge::olume, in index : fge::LogicalIndex) : void
+            + setInstance(in fgeInstance : fge::Instance, in index : fge::LogicalIndex) : void
+            + setTexture2D(in fgeTexture2D : fge::Texture, in index : fge::LogicalIndex) : void
+            + setTexture3D(in fgeTexture3D : fge::Texture, in index : fge::LogicalIndex) : void
+            + setMaterial(in fgeMaterial : fge::Material, in index : fge::LogicalIndex) : void
+        }
+        helium::BaseGlobalDeviceState <|-- FgeGlobalState
+
+        class Object
+        {
+            # m_globalState : FgeGlobalState*
+
+            + Object(in type : ANARIDataType, in globalState : FgeGlobalState*)
+            + {virtual} ~Object()
+
+            + {virtual} getProperty(in name : std::string_view, in type : ANARIDataType,
+                out ptr : void*, in size : uint64_t, in flags : uint32_t) : bool
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+
+            + globalState() : FgeGlobalState*
+        }
+        helium::BaseObject <|-- Object
+
+        class UnknownObject
+        {
+            # m_subtype : std::string
+
+            + UnknownObject(in type : ANARIDataType, in subtype : std::string_view,
+                in globalState : FgeGlobalState*)
+            + {virtual} ~UnknownObject()
+
+            + {virtual} isValid() const : bool
+        }
+        Object <|-- UnknownObject
+
+        class Frame
+        {
+            - m_renderer : helium::IntrusivePtr<Renderer>
+            - m_camera : helium::IntrusivePtr<Camera>
+            - m_world : helium::IntrusivePtr<World>
+            - m_size : helium::uint2
+
+            + Frame(in globalState : FgeGlobalState*)
+            + {virtual} ~Frame()
+
+            + deviceState() : FgeGlobalState*
+
+            + isValid() : bool override
+            + getProperty(in name : string_view, in type : ANARIDataType,
+                in ptr : void*, in size : uint64_t, in flags : uint32_t) : bool override
+
+            + commitParameters() : void override
+            + finalize() : void override
+            + renderFrame() : void override
+
+            + map(in channel : string_view, out width : uint32_t*,
+                out height : uint32_t*, out pixelType : ANARIDataType*) : void* override
+            + unmap(in channel : string_view) : void override
+            + discard() : void override
+        }
+        helium::BaseFrame <|-- Frame
+
+        class World
+        {
+            - m_zeroSurfaceData : helium::ChangeObserverPtr<helium::ObjectArray>
+            - m_zeroVolumeData : helium::ChangeObserverPtr<helium::ObjectArray>
+            - m_zeroLightData : helium::ChangeObserverPtr<helium::ObjectArray>
+            - m_instanceData : helium::ChangeObserverPtr<helium::ObjectArray>
+
+            - m_zeroGroup : helium::IntrusivePtr<Group>
+            - m_zeroInstance : helium::IntrusivePtr<Instance>
+
+            - m_instances : std::vector<Instance*>
+
+            + World(in globalState : FgeGlobalState*)
+            + {virtual} ~World()
+
+            + {virtual} getProperty(in name : string_view, in type : ANARIDataType, 
+                in ptr : void*, in size : uint64_t, in flags : uint32_t) override
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            - finalizeAnariAttributs() : void
+            - finalizeFgeAttributs() : void
+        }
+        helium::BaseObject <|-- World
+
+        class Renderer
+        {
+            - m_pixelSamples : int
+            - m_ambientRadiance : float
+            - m_crosshairs : bool
+            - m_denoise : bool
+            - m_background : anari::math::float4
+            - m_backgroundImage : helium::ChangeObserverPtr<Array2D>
+
+            + Renderer(in globalState : FgeGlobalState*)
+            + {virtual} ~Renderer()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        Object <|-- Renderer
+
+        class Camera
+        {
+            # m_position : helium::float3
+            # m_direction : helium::float3
+            # m_up : helium::float3
+            # m_imageRegion : helium::float4
+            # fgeCamera : fge::Camera
+
+            + Camera(in globalState : FgeGlobalState*)
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Camera*
+            + {virtual} commitParameters() : void override
+        }
+        Object <|-- Camera
+
+        class Perspective
+        {
+            - m_fovy : float
+            - m_aspect : float
+            - m_focusDistance : float
+            - m_apertureRadius : float
+
+            + Perspective(in globalState : FgeGlobalState*)
+            + commitParameters() : void override
+            + finalize() : void override
+        }
+        Camera <|-- Perspective
+
+        class Geometry
+        {
+            # m_constantAttributes : std::array<helium::float4, 5>
+            # m_primitiveAttributes : std::array<helium::IntrusivePtr<Array1D>, 5>
+            # m_vertexAttributes : std::array<helium::IntrusivePtr<Array1D>, 5>
+            # m_fgeMeshIndex : fge::LogicalIndex
+
+            + Geometry(in globalState : FgeGlobalState*)
+            + {virtual} ~Geometry()
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Geometry*
+
+            + getFgeMeshIndex() : fge::LogicalIndex
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+        }
+        Object <|-- Geometry
+        
+        class Triangle
+        {
+            - m_index : helium::ChangeObserverPtr<Array1D>
+            - m_vertexPosition : helium::ChangeObserverPtr<Array1D>
+            - m_vertexNormal : helium::ChangeObserverPtr<Array1D>
+
+            - m_faceVaryingAttributes : std::array<helium::IntrusivePtr<Array1D>, 6>
+            - m_generatedIndices : std::vector<int>
+
+            + Triangle(in globalState : FgeGlobalState*)
+            + {virtual} ~Triangle()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        Geometry <|-- Triangle
+
+        class Group
+        {
+            + m_surfaceData : helium::ChangeObserverPtr<helium::ObjectArray>
+            + m_volumeData : helium::ChangeObserverPtr<helium::ObjectArray>
+            + m_lightData : helium::ChangeObserverPtr<helium::ObjectArray>
+
+            + Group(in globalState : FgeGlobalState*)
+            + {virtual} ~Group()
+
+            + {virtual} commitParameters() : void
+        }
+        Object <|-- Group
+
+        class Instance
+        {
+            - m_transform : anari::math::mat4
+            - m_group : helium::IntrusivePtr<Group>
+            - m_fgeInstancesIndex : vector<fge::LogicalIndex>
+
+            + Instance(in globalState : FgeGlobalState*)
+            + {virtual} ~Instance()
+
+            + getFgeInstancesIndex() : vector<fge::LogicalIndex>
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} markFinalized() : void
+            + {virtual} isValid() const : bool
+        }
+        Object <|-- Instance
+
+        class Light
+        {
+            # m_fgeLightIndex : fge::LogicalIndex
+            # m_color : anari::math::float3
+
+            + Light(in globalState : FgeGlobalState*)
+            + {virtual} ~Light()
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Light*
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+        }
+        Object <|-- Light
+
+        class Point
+        {
+            - m_position  : anari::math::float3
+            - m_radius : float
+            - m_intensity : float
+            - m_power : float
+            - m_radiance : float
+
+            + Point(in globalState : FgeGlobalState*)
+            + {virtual} ~Point()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+        }
+        Light <|-- Point
+
+        class Material
+        {
+            # m_fgeMaterialIndex : fge::LogicalIndex
+
+            + Material(in globalState : FgeGlobalState*)
+            + {virtual} ~Material()
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Material*
+
+            + getFgeIndex() : fge::LogicalIndex
+            + {virtual} finalize() : void
+        }
+        Object <|-- Material
+
+        struct MaterialParameter<SCALAR_T>
+        {
+            + value : SCALAR_T
+            + attribute : string
+            + sampler : helium::IntrusivePtr<Sampler>
+        }
+
+        class Matt
+        {
+            - m_color : anari::math::float4
+            - m_opacity : float
+
+            + Matt(in globalState : FgeGlobalState*)
+            + {virtual} ~Matt()
+
+            + {virtual} commitParameters() : void
+            + {virtual} isValid() const : bool
+            + {virtual} finalize() : void
+        }
+        Material <|-- Matt
+
+        class PhysicallyBased
+        {
+            - m_baseColor : anari::math::float4
+            - m_emissive : anari::math::float3
+            - m_specularColor: anari::math::float3
+            - m_opacity : float
+            - m_metallic : float
+            - m_roughness : float
+            - m_specular : float
+            - m_transmission : float
+            - m_ior : float
+
+            + PhysicallyBased(in globalState : FgeGlobalState*)
+            + {virtual} ~PhysicallyBased()
+
+            + {virtual} commitParameters() : void
+            + {virtual} isValid() const : bool
+            + {virtual} finalize() : void
+        }
+        Material <|-- PhysicallyBased
+
+        class Sampler
+        {
+            # m_inAttribute : std::string
+            # m_inTransform : helium::mat4
+            # m_inOffset : helium::float4
+            # m_outTransform : helium::mat4
+            # m_outOffset : helium::float4
+
+            + Sampler(in globalState : FgeGlobalState*)
+            + {virtual} ~Sampler()
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Sampler*
+
+            + {virtual} commitParameters() : void
+        }
+        Object <|-- Sampler
+
+        class TextureDataSampler
+        {
+            # m_fgeIndex : fge::LogicalIndex
+
+            + TextureDataSampler(in globalState : FgeGlobalState*)
+            + {virtual} ~TextureDataSampler()
+
+            + getFgeIndex() : fge::LogicalIndex
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+        }
+        Sampler <|-- TextureDataSampler
+
+        class Image1D
+        {
+            - m_image : helium::IntrusivePtr<helium::Array1D>
+            - m_wrapMode : string
+
+            + Image1D(in globalState : FgeGlobalState*)
+            + {virtual} ~Image1D()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        TextureDataSampler <|-- Image1D
+
+        class Image2D
+        {
+            - m_image : helium::IntrusivePtr<helium::Array2D>
+            - m_wrapMode1 : string
+            - m_wrapMode2 : string
+
+            + Image2D(in globalState : FgeGlobalState*)
+            + {virtual} ~Image2D()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        TextureDataSampler <|-- Image2D
+
+        class Image3D
+        {
+            - m_image : helium::IntrusivePtr<helium::Array3D>
+            - m_wrapMode1 : string
+            - m_wrapMode2 : string
+            - m_wrapMode3 : string
+
+            + Image3D(in globalState : FgeGlobalState*)
+            + {virtual} ~Image3D()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        TextureDataSampler <|-- Image3D
+
+        class SpatialField
+        {
+            # m_fgeVolumeData : fge::VolumeData
+
+            + SpatialField(in globalState : FgeGlobalState*)
+            + {virtual} ~SpatialField()
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : SpatialField*
+
+            + getVolumeData() : fge::VolumeData
+        }
+        Object <|-- SpatialField
+
+        class StructuredRegularField
+        {
+            - m_data : helium::ChangeObserverPtr<helium::Array3D>
+            - m_dims : anari::math::uint3
+            - m_origin : anari::math::float3
+            - m_spacing : anari::math::float3
+            - m_fgeTexture3DIndex : fge::LogicalIndex
+
+            + StructuredRegularField(in globalState : FgeGlobalState*)
+            + {virtual} ~StructuredRegularField()
+
+            + getFgeTexture3DIndex() : fge::LogicalIndex
+            
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+        }
+        SpatialField <|-- StructuredRegularField
+
+        class Surface
+        {
+            - m_geometry : helium::ChangeObserverPtr<Geometry>
+            - m_material : helium::ChangeObserverPtr<Material>
+
+            + Surface(in globalState : FgeGlobalState*)
+            + {virtual} ~Surface()
+
+            + getFgeMeshIndex() : fge::LogicalIndex
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        Object <|-- Surface
+
+        class Volume
+        {
+            - m_fgeVolumeIndex : fge::LogicalIndex
+
+            + Volume(in globalState : FgeGlobalState*)
+            + {virtual} ~Volume()
+
+            + getFgeVolumeIndex() : fge::LogicalIndex
+
+            + {static} createInstance(in subtype : std::string_view, in globalState : FgeGlobalState*) : Volume*
+
+            + {virtual} finalize() : void
+        }
+        Object <|-- Volume
+
+        class TransferFunction1D
+        {
+            - m_field : helium::ChangeObserverPtr<SpatialField>
+            - m_valueRange : helium::box1
+            - m_unitDistance : float
+            - m_densityScale : float
+            - m_uniformColor : helium::float4
+            - m_uniformOpacity : float
+
+            - m_colorData : helium::ChangeObserverPtr<helium::Array1D>
+            - m_opacityData : helium::ChangeObserverPtr<helium::Array1D>
+
+            + TransferFunction1D(in globalState : FgeGlobalState*)
+            + {virtual} ~TransferFunction1D()
+
+            + {virtual} commitParameters() : void
+            + {virtual} finalize() : void
+            + {virtual} isValid() const : bool
+        }
+        Volume <|-- TransferFunction1D
+
+        class Array1D
+        {
+            + Array1D(in globalState : FgeGlobalState*, in descriptor : helium::Array1DMemoryDescriptor)
+            + {virtual} ~Array1D()
+        }
+        helium::Array1D <|-- Array1D
+
+        class Array2D
+        {
+            + Array2D(in globalState : FgeGlobalState*, in descriptor : helium::Array2DMemoryDescriptor)
+            + {virtual} ~Array2D()
+        }
+        helium::Array2D <|-- Array2D
+
+        class Array3D
+        {
+            + Array3D(in globalState : FgeGlobalState*, in descriptor : helium::Array3DMemoryDescriptor)
+            + {virtual} ~Array3D()
+        }
+        helium::Array3D <|-- Array3D
     }
 }
 

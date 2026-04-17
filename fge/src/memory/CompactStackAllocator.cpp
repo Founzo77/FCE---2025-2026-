@@ -4,6 +4,11 @@
 
 namespace fge
 {
+    CompactStackAllocator::~CompactStackAllocator()
+    {
+        reset();
+    }
+
     CompactStackAllocator::CompactStackAllocator() :
         m_nbMaxElements(0), m_nbElements(0), m_strideSize(0), m_buffer(0)
     {
@@ -35,6 +40,15 @@ namespace fge
 
         m_buffer.clear();
         m_buffer.resize(nbMaxElements * strideSize);
+    }
+
+    void CompactStackAllocator::reset()
+    {
+        m_nbMaxElements = 0;
+        m_nbElements = 0;
+        m_strideSize = 0;
+        m_buffer.clear();
+        m_buffer.shrink_to_fit();
     }
 
     uint64_t CompactStackAllocator::alloc()

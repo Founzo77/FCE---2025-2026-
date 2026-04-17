@@ -9,6 +9,7 @@ using std::shared_ptr;
 namespace fgewa
 {
     class Device;
+    class AnariRenderConfig;
 
     class Renderer
     {
@@ -20,14 +21,16 @@ namespace fgewa
         Renderer() = default;
         ~Renderer();
 
-        Renderer(const Renderer&) = default;
-        Renderer& operator=(const Renderer&) = default;
-        Renderer(Renderer&&) = default;
-        Renderer& operator=(Renderer&&) = default;
+        Renderer(const Renderer&) = delete;
+        Renderer& operator=(const Renderer&) = delete;
+        Renderer(Renderer&& other);
+        Renderer& operator=(Renderer&& other);
         
-        void initialize(shared_ptr<Device> device);
+        void initialize(shared_ptr<Device> device, const AnariRenderConfig& renderConfig);
         void reset();
         ANARIRenderer getHandle() noexcept;
         const ANARIRenderer getHandle() const noexcept;
+        void logAvailableRenderers();
+        void logSupportedParameters();
     };
 }

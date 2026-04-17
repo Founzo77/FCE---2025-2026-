@@ -238,7 +238,8 @@ namespace fge
             if(elapsedSeconds == 0)
             {
                 Instance newInstance;
-                newInstance.m_meshIndex = INSTANCE_MESH_ID;
+                newInstance.m_geometryReference.m_type = GeometryType::TRIANGLES;
+                newInstance.m_geometryReference.m_geometryIndex = INSTANCE_MESH_ID;
                 newInstance.m_transform = XMMatrixIdentity();
                 float x = distPos01(gen);
                 float y = 0;

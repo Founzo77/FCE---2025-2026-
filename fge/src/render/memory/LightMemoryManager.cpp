@@ -9,6 +9,11 @@
 
 namespace fge
 {
+    LightMemoryManager::~LightMemoryManager()
+    {
+        reset();
+    }
+
     void LightMemoryManager::startInitialize(ComPtr<ID3D12Device5> device, 
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
@@ -23,6 +28,7 @@ namespace fge
 
         throwIfFailed(device->CreateHeap(&desc, IID_PPV_ARGS(&m_deviceHeap)),
             "Failed to create ID3D12Heap");
+        d12SetDebugName(m_deviceHeap, L"Light Heap");
 
         D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
             m_lightsPool.getBufferTotalSize());
@@ -30,8 +36,10 @@ namespace fge
         throwIfFailed(device->CreatePlacedResource(m_deviceHeap.Get(), 0,
             &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&m_deviceBuffer)),
             "Failed to create placed light buffer");
+        d12SetDebugName(m_deviceBuffer, L"Light Heap Buffer");
 
         m_uploadBuffer.initialize(device, m_lightsPool.getBufferTotalSize());
+        d12SetDebugName(m_uploadBuffer.m_buffer, L"Light Heap Upload Buffer");
     }
 
     void LightMemoryManager::moveAllToDevice(ComPtr<ID3D12Device5> device, 
@@ -58,6 +66,21 @@ namespace fge
             m_deviceBuffer.Get(), 
             D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
         directCommandList->ResourceBarrier(1, &barrier);
+    }
+
+    void LightMemoryManager::reset()
+    {
+        m_lightsPool.reset();
+        m_logicalIndexToPhysical.clear();
+        unordered_map<uint32_t, uint32_t>().swap(m_logicalIndexToPhysical);
+        m_physicalLightsUpdated.clear();
+        m_physicalLightsUpdated.shrink_to_fit();
+        
+        m_deviceHeap.Reset();
+        m_deviceBuffer.Reset();
+        m_uploadBuffer.reset();
+
+        m_hasLightsResized = false;
     }
 
     uint64_t LightMemoryManager::getLightPageSize() const
@@ -121,7 +144,7 @@ namespace fge
 
             if (r.m_index <= backEnd) 
             {
-                const uint32_t newEnd = max(backEnd, r.m_index + r.m_count);
+                const uint32_t newEnd = std::max(backEnd, r.m_index + r.m_count);
                 back.m_count = newEnd - back.m_index;
             } 
             else 

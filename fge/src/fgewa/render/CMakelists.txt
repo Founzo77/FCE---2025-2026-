@@ -1,6 +1,10 @@
 
 target_sources(fge PRIVATE
     AnariScene.cpp
-    MainRenderer.cpp)
+    MainRenderer.cpp
+    PresentFrame.cpp
+    PresentHostFrame.cpp
+    PresentCudaFrame.cu
+    PresentDirectX12Frame.cpp)
 
 add_subdirectory(data)

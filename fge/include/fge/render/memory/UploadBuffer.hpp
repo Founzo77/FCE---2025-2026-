@@ -17,7 +17,7 @@ namespace fge
 
     public:
         UploadBuffer();
-        ~UploadBuffer() = default;
+        ~UploadBuffer();
 
         UploadBuffer(const UploadBuffer&) = delete;
         UploadBuffer(UploadBuffer&&) = default;
@@ -27,6 +27,8 @@ namespace fge
 
         void initialize(ComPtr<ID3D12Device5> device, uint64_t size);
         void reallocate(ComPtr<ID3D12Device5> device, uint64_t size);
+
+        void reset();
 
         inline uint64_t getSize() const noexcept { return m_size; }
         inline ComPtr<ID3D12Resource> getBuffer() noexcept { return m_buffer; }

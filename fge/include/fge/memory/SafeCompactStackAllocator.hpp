@@ -24,7 +24,11 @@ namespace fge
         SafeCompactStackAllocator(const SafeCompactStackAllocator& other);
         SafeCompactStackAllocator(SafeCompactStackAllocator&& other);
 
+        ~SafeCompactStackAllocator();
+
         void initialize(uint64_t nbMaxElements, uint64_t strideSize);
+
+        void reset();
 
         inline uint8_t* getBuffer()
         {

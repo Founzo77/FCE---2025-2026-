@@ -14,8 +14,31 @@ namespace fgewa
         m_device = nullptr;
     }
 
-    void Geometry::initialize(shared_ptr<Device> device, const fge::Mesh& meshData)
+    fgewa::Geometry::Geometry(Geometry&& other) : m_device(other.m_device),
+        m_geometry(other.m_geometry)
     {
+        other.m_geometry = nullptr;
+    }
+
+    Geometry& Geometry::operator=(Geometry&& other)
+    {
+        if(this != &other)
+        {
+            reset();
+
+            m_device = other.m_device;
+            m_geometry = other.m_geometry;
+            other.m_geometry = nullptr;
+        }
+
+        return *this;
+    }
+
+    void Geometry::initialize(shared_ptr<Device> device, const fge::Mesh& meshData, 
+        const uint32_t subMeshId)
+    {
+        // TO_DO Partage les ANARIArray1D des positions...
+
         m_device = device;
         throwIfFailed(!m_geometry, "A Geometry has already been created");
 
@@ -23,9 +46,10 @@ namespace fgewa
 
         throwIfFailed(!m_geometry == false, "Failed to create ANARI Geometry");
 
-        // 2️⃣ Extraire les tableaux
-        const auto &vertices = meshData.m_vertices;
-        const auto &indices = meshData.m_indices;
+        // Extraire les tableaux
+        const std::vector<fge::Vertex>& vertices = meshData.m_vertices;
+        const std::vector<uint32_t>& indices = meshData.m_indices;
+        const fge::SubMesh& subMesh  = meshData.m_subMeshes[subMeshId];
 
         // Préparer tableaux contigus CPU
         std::vector<float> positions;
@@ -62,9 +86,15 @@ namespace fgewa
             m_device->getHandle(), uvs.data(), 0,
             nullptr, ANARI_FLOAT32_VEC2, uvs.size() / 2);
 
-        ANARIArray1D indexArray = anariNewArray1D(
-            m_device->getHandle(), indices.data(), 0,
-            nullptr, ANARI_UINT32_VEC3, indices.size() / 3);
+        const uint32_t start = subMesh.m_startIndices;
+        const uint32_t count = subMesh.m_nbIndices;
+
+        throwIfFailed(start + count <= indices.size(), "Submesh indices out of bounds");
+
+        const uint32_t* subIndicesPtr = indices.data() + start;
+
+        ANARIArray1D indexArray = anariNewArray1D(m_device->getHandle(), subIndicesPtr,
+            nullptr, 0, ANARI_UINT32_VEC3, count / 3);
 
         anariSetParameter(m_device->getHandle(), m_geometry,
             "vertex.position", ANARI_ARRAY1D, &positionArray);
@@ -73,7 +103,7 @@ namespace fgewa
             "vertex.normal", ANARI_ARRAY1D, &normalArray);
 
         anariSetParameter(m_device->getHandle(), m_geometry,
-            "vertex.texcoord", ANARI_ARRAY1D, &texArray);
+            "vertex.attribute0", ANARI_ARRAY1D, &texArray);
 
         anariSetParameter(m_device->getHandle(), m_geometry,
             "primitive.index", ANARI_ARRAY1D, &indexArray);

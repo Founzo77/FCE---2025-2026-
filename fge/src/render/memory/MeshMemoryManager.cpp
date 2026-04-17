@@ -7,6 +7,11 @@
 
 namespace fge
 {
+    MeshMemoryManager::~MeshMemoryManager()
+    {
+        reset();
+    }
+
     void MeshMemoryManager::startInitialize(ComPtr<ID3D12Device5> device, 
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
@@ -35,7 +40,9 @@ namespace fge
             uint64_t indexBufferSize = sizeof(uint32_t) * mesh.m_indices.size();
 
             vertexBuffer.initialize(device, vertexBufferSize, D3D12_RESOURCE_FLAG_NONE);
+            d12SetDebugName(vertexBuffer.m_buffer, L"Vertex Buffer");
             indexBuffer.initialize(device, indexBufferSize, D3D12_RESOURCE_FLAG_NONE);
+            d12SetDebugName(indexBuffer.m_buffer, L"Index Buffer");
 
             CD3DX12_RESOURCE_BARRIER barriers[2] = {
                 CD3DX12_RESOURCE_BARRIER::Transition(
@@ -51,7 +58,9 @@ namespace fge
             UploadBuffer indexUploadBuffer;
 
             vertexUploadBuffer.initialize(device, vertexBufferSize);
+            d12SetDebugName(vertexUploadBuffer.m_buffer, L"Vertex Upload Buffer");
             indexUploadBuffer.initialize(device, indexBufferSize);
+            d12SetDebugName(indexUploadBuffer.m_buffer, L"Index Upload Buffer");
 
             vertexUploadBuffer.upload(mesh.m_vertices.data(), vertexBufferSize);
             indexUploadBuffer.upload(mesh.m_indices.data(), indexBufferSize);
@@ -114,13 +123,16 @@ namespace fge
 
             mesh.m_subMeshesDataBuffer.initialize(
                 device, subMeshesDataBufferSize, D3D12_RESOURCE_FLAG_NONE);
+            d12SetDebugName(mesh.m_subMeshesDataBuffer.m_buffer, L"Sub Mesh Buffer");
             barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
                     mesh.m_subMeshesDataBuffer.getBuffer().Get(),
                     D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST);
             directCommandList->ResourceBarrier(1, barriers);
 
             mesh.m_subMeshesDataUploadBuffer.initialize(device, subMeshesDataBufferSize);
-            mesh.m_subMeshesDataUploadBuffer.upload(mesh.m_subMeshesData.data(), subMeshesDataBufferSize);
+            d12SetDebugName(mesh.m_subMeshesDataUploadBuffer.m_buffer, L"Sub Mesh Upload Buffer");
+            mesh.m_subMeshesDataUploadBuffer.upload(
+                mesh.m_subMeshesData.data(), subMeshesDataBufferSize);
             directCommandList->CopyBufferRegion(mesh.m_subMeshesDataBuffer.getBuffer().Get(),
                 0, mesh.m_subMeshesDataUploadBuffer.getBuffer().Get(), 0, subMeshesDataBufferSize);
 
@@ -146,7 +158,8 @@ namespace fge
             D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildBlasDesc = {};
             buildBlasDesc.Inputs = blasInput;
 
-            m_maxBlasScratchSize = max(m_maxBlasScratchSize, prebuildInfo.ScratchDataSizeInBytes);
+            m_maxBlasScratchSize = 
+                std::max(m_maxBlasScratchSize, prebuildInfo.ScratchDataSizeInBytes);
 
             uint64_t blasSize = alignData(prebuildInfo.ResultDataMaxSizeInBytes,
                 D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT);
@@ -154,6 +167,7 @@ namespace fge
             blasBuffer.initialize(device, blasSize, 
                 D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
                 D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
+            d12SetDebugName(blasBuffer.m_buffer, L"BLAS Mesh Buffer");
             
             mesh.m_blasDescription = std::move(buildBlasDesc);
 
@@ -166,6 +180,10 @@ namespace fge
             D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS);
         m_scratchBlasBuffers.allocate(device, m_maxBlasScratchSize, 
             D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+        d12SetDebugName(m_scratchBlasBuffers.m_heap, L"Scratch Mesh Blas Heap");
+        for(ComPtr<ID3D12Resource> blasBuffer : m_scratchBlasBuffers.m_buffers)
+            d12SetDebugName(blasBuffer, L"Scratch Mesh Blas Heap Buffer");
 
         for(Mesh& mesh : iterateOverMeshes())
         {
@@ -188,6 +206,30 @@ namespace fge
 
     }
 
+    void MeshMemoryManager::reset()
+    {
+        if(m_meshesPool.getNbElements() > 0)
+        {
+            for(Mesh& mesh : iterateOverMeshes())
+            {
+                mesh.reset();
+            }
+        }
+
+        m_meshesPool.reset();
+
+        m_subMeshesIndexPool.reset();
+        m_scratchBlasBuffers.reset();
+        
+        m_maxBlasScratchSize = 0;
+        m_nbSubMeshes = 0;
+
+        m_logicalIndexToPhysical.clear();
+        m_logicalIndexToPhysical.shrink_to_fit();
+        m_physicalIndexToLogical.clear();
+        m_physicalIndexToLogical.shrink_to_fit();
+    }
+
     uint64_t MeshMemoryManager::getMeshPageSize() const
     {
         return sizeof(Mesh);
@@ -200,7 +242,7 @@ namespace fge
 
     uint64_t MeshMemoryManager::getNbMaxMeshes() const
     {
-        return 100;
+        return 1000;
     }
 
     uint64_t MeshMemoryManager::getNbMaxSubMeshes() const
@@ -260,10 +302,11 @@ namespace fge
         uint32_t physicalMeshIndex = m_meshesPool.alloc();
         m_logicalIndexToPhysical[meshIndex.m_index] = physicalMeshIndex;
         m_physicalIndexToLogical[physicalMeshIndex] = meshIndex.m_index;
+        
         Mesh& currentMesh = m_meshesPool.get<Mesh>(physicalMeshIndex);
         currentMesh = std::move(mesh);
-        currentMesh.m_subMeshFirstIndex = 
-            m_subMeshesIndexPool.alloc(currentMesh.m_subMeshes.size());
+        currentMesh.m_subMeshFirstIndex =
+             m_subMeshesIndexPool.alloc(currentMesh.m_subMeshes.size());
 
         return { physicalMeshIndex };
     }
@@ -275,6 +318,7 @@ namespace fge
 
     bool MeshMemoryManager::free(const LogicalIndex meshIndex)
     {
+        get(meshIndex).reset();
         bool has_freed = m_meshesPool.free(m_logicalIndexToPhysical[meshIndex.m_index]);
 
         if(has_freed)

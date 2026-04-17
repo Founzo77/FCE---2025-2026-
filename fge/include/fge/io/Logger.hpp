@@ -6,9 +6,7 @@
 #include <iomanip>
 #include <sstream>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include "../PlatformWindows.hpp"
 
 namespace fge
 {
@@ -103,7 +101,11 @@ namespace fge
 
         ~LoggerStream()
         {
-            postPrint();
+            #pragma omp critical(post_print)
+            {
+                postPrint();
+                m_outputStream.flush();
+            }
         }
 
         template <typename T>
@@ -112,8 +114,11 @@ namespace fge
            #if !defined(NDEBUG)
                 if(m_level != LoggerLevel::NONE)
                 {
-                    prePrint();
-                    m_outputStream << toPrint;
+                    #pragma omp critical(pre_print)
+                    {
+                        prePrint();
+                        m_outputStream << toPrint;
+                    }
                 }
             #endif
 

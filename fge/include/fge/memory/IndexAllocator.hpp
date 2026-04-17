@@ -30,4 +30,14 @@ namespace fge
         void alloc(const uint64_t index);
         void free(const uint64_t index);
     };
+
+    class CompactIndexAllocator : public IndexAllocator
+    {
+    public:
+        CompactIndexAllocator();
+        CompactIndexAllocator(const CompactIndexAllocator& other);
+        CompactIndexAllocator(CompactIndexAllocator&& other);
+
+        uint64_t alloc();
+    };
 }

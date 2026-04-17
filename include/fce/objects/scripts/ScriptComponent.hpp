@@ -11,6 +11,10 @@ namespace fce
         ZOMBIE,
         CAMERA_MANAGER,
         PLAYER_MANAGER,
+        SHOOTER,
+        BULLET,
+        PARTICLE_GENERATOR,
+        PARTICLE,
         DEBUG_POSITION
     };
 
@@ -34,6 +38,10 @@ namespace fce
     class ZombieComponent;
     class CameraManagerComponent;
     class PlayerManagerComponent;
+    class BulletComponent;
+    class ShooterComponent;
+    class ParticleComponent;
+    class ParticleGeneratorComponent;
     class DebugPositionComponent;
 
     template<typename T>
@@ -73,6 +81,30 @@ namespace fce
     struct ScriptComponentTypeResolver<PlayerManagerComponent>
     {
         static constexpr ScriptComponentType value = ScriptComponentType::PLAYER_MANAGER;
+    };
+
+    template<>
+    struct ScriptComponentTypeResolver<BulletComponent>
+    {
+        static constexpr ScriptComponentType value = ScriptComponentType::BULLET;
+    };
+
+    template<>
+    struct ScriptComponentTypeResolver<ShooterComponent>
+    {
+        static constexpr ScriptComponentType value = ScriptComponentType::SHOOTER;
+    };
+
+    template<>
+    struct ScriptComponentTypeResolver<ParticleComponent>
+    {
+        static constexpr ScriptComponentType value = ScriptComponentType::PARTICLE;
+    };
+
+    template<>
+    struct ScriptComponentTypeResolver<ParticleGeneratorComponent>
+    {
+        static constexpr ScriptComponentType value = ScriptComponentType::PARTICLE_GENERATOR;
     };
 
     template<>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<scene>
+    <!--
+    <render_config type="fge" integrator="pathtracer" spp="1"/>
+
+    <render_config type="anari" library="helide" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visrtx" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+    <render_config type="anari" library="visrtx" algorithm="raycast" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="barney" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visionaray" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="visionaray_cuda" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+
+    <render_config type="anari" library="fgeia" algorithm="default" ambient_radiance="1">
+        <background x="0.8" y="0.8" z="0.8"/>
+    </render_config>
+    -->
+
+    <render_config type="fge" integrator="pathtracer" spp="1" compute_frames="3" render_frames="3"/>
+
+    <!--
+    <background texture_path="scene/background/gray_0_8.png"/>
+    -->
+    <background texture_path="scene/background/gray_0_8.png"/>
+    
+    <perspective_camera depth="0.3" width="1" height="1" size_pixel="0.1">
+        <origin x="-23.4818" y="17.5368" z="8.88065"/>
+        <forward x="0.940233" y="0" z="-0.340532"/>
+        <up x="0" y="1" z="0"/>
+    </perspective_camera>
+
+    <meshes>
+        <include id="0" path="scene/cornell-box/scene.obj" scale="0.1"
+            hit_group="DiffuseHitGroup">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="0" z="0"/>
+        </include>
+
+        <include id="1" path="scene/bullet/bullet.obj" scale="2"
+            hit_group="DiffuseHitGroup">
+            <translation x="0" y="0" z="0"/>
+            <rotation x="0" y="80" z="0"/>
+        </include>
+    </meshes>
+
+    <volumes>
+
+    </volumes>
+
+    <game_objects render_camera_id="0">
+        <game_object id="0" name="main_camera">
+            <transform>
+                <translation x="-23.4818" y="17.5368" z="8.88065"/>
+                <rotation x="0" y="180" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <camera depth="0.3" width="1" height="1"/>
+            <player move_speed="5" rotate_speed="1" acceleration="4" />
+
+            <debug_position/>
+        </game_object>
+
+        <game_object id="1" name="scene">
+            <transform>
+                <translation x="0" y="0" z="0"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <render geometry_id="0" type="surface"/>
+        </game_object>
+
+        <game_object id="2" name="light_0">
+            <transform>
+                <!--
+                <translation x="-28.9611" y="52.8384" z="-28.7178"/>
+                <translation x="-28.1389" y="44.5881" z="-50.3464"/>
+                -->
+                <translation x="-28.9611" y="52.8384" z="-28.7178"/>
+                <rotation x="0" y="0" z="0"/>
+                <scale x="1" y="1" z="1"/>
+            </transform>
+
+            <light_point id="0">
+                <radiance x="1.0" y="1.0" z="1.0"/>
+            </light_point>
+
+            <!--
+            <render geometry_id="1" type="surface"/>
+            -->
+        </game_object>
+    </game_objects>
+
+    <!-- TO_DO : Supprimer ca quand possible -->
+    <instances/>
+    <emitters/>
+</scene>

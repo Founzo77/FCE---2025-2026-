@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GeometryReference.hpp"
+
 #include <DirectXMath.h>
 
 #include <cstdint>
@@ -11,7 +13,7 @@ namespace fge
     struct Instance
     {
     public:
-        uint32_t m_meshIndex;
+        GeometryReference m_geometryReference;
         XMMATRIX m_transform;
 
     public:

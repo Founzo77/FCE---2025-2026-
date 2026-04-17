@@ -10,8 +10,8 @@ namespace fce {
         - m_height : uint32_t
         - m_pathFileScene : string
         - m_isInit : bool
-        - m_keys : bool[256]
         - m_application : Application
+        - m_isMouseLocked : bool
 
         + MainWindow(in hInstance : HINSTANCE, in width : uint32_t, in height : uint32_t,
             in m_pathFileScene : string)
@@ -31,9 +31,11 @@ namespace fce {
 
     class Application
     {
-        - m_renderApplication : fge::Application
-        - m_objectManager : ObjectManager
-        - m_updateContext : UpdateContext
+        # m_renderApplication : unique_ptr<fge::FgeApplication>
+        # m_objectManager : ObjectManager
+        # m_remoteController : unique_ptr<RemoteController>
+        # m_remoteCommandQueue : shared_ptr<RemoteCommandQueue>
+        # m_updateContext : UpdateContext
 
         + initialize(in hWnd : HWND, in width : uint32_t, in height : uint32_t,
             in m_pathFileScene : string) : void
@@ -81,30 +83,53 @@ namespace fce {
 
     namespace objects {
 
+        namespace resources {
+            class GameObjectFactory
+            {
+                + {static} buildStaticRenderedGameObject(in initialPosition : Transform, 
+                    in meshIndex : LogicalIndex) : GameObject
+                + {static} buildStaticRenderedVolumiqueGameObject(in initialPosition : Transform, 
+                    in volumeIndex : LogicalIndex) : GameObject
+            }
+        }
+
         class ObjectManager
         {
             - m_gameObjectPool : GameObjectMemoryManager
-            - m_gameObjectLogicalIndexPool : IndexAllocator
+            - m_gameObjectIndexPool : IndexAllocator
+            - m_lightIndexPool : IndexAllocator
+            - m_textureIndexPool : IndexAllocator
+            - m_materialIndexPool : IndexAllocator
+            - m_meshIndexPool : IndexAllocator
+            - m_instanceIndexPool : IndexAllocator
             - m_updateContext : const UpdateContext*
             - m_renderScene : shared_ptr<FgeScene>
             - m_renderedGameObjectMoved : vector<LogicalIndex>
             - m_LightGameObjectMoved : vector<LogicalIndex>
             - m_currentRenderCamera : LogicalIndex
             - m_hasRenderCameraMoved : bool
+            - m_remoteCommandQueue : shared_ptr<RemoteCommandQueue>
 
-            + initialize(in updateContext : const UpdateContext*, in renderScene : shared_ptr<FgeScene>) : void
             + initialize(in updateContext : const UpdateContext*, in renderScene : shared_ptr<FgeScene>,
+                in shared_ptr<RemoteCommandQueue> remoteCommandQueue) : void
+            + initialize(in updateContext : const UpdateContext*, in renderScene : shared_ptr<FgeScene>,
+                in shared_ptr<RemoteCommandQueue> remoteCommandQueue, in reader : XmlReader) : void
+            - onInitializeFillGameObject(in updateContext : const UpdateContext*, 
                 in reader : XmlReader) : void
-            
-            + instantiate(in out components : GameObject) : void
+            - onInitializeFillSceneIndexPool(in reader : XmlReader) : void
+
+            + instantiate(in out gameObject : GameObject) : void
+            + destroyGameObject(in gameObjectIndex : LogicalIndex) : void
 
             + getGameObject(in gameObjectIndex : LogicalIndex) : GameObject
 
             + update() : void
             - updateComponents() : void
+            - updateRemoteRequest() : void
             - updateRender() : void
 
             + onComponentMoved(in component : TransformComponent) : void
+            + onRenderComponentRefreshed(in render : RenderComponent) : void
             + setRenderCamera(in component : CameraComponent) : void
         }
 
@@ -122,7 +147,7 @@ namespace fce {
             + get(in gameObjectIndex : LogicalIndex) : GameObject
             + iterateOverGameObjects() : iterator<GameObject>
 
-            + add(in out gameObject : GameObject, in gameObjectIndex : LogicalIndex) : PhysicalIndex
+            + add(in out gameObject : GameObject) : PhysicalIndex
             + free(in gameObjectIndex : LogicalIndex) : void
         }
 
@@ -152,11 +177,14 @@ namespace fce {
             + hasComponent<TYPE>() : bool
 
             + addComponent<TYPE>() : void
+            + addComponent<TYPE>(in component : TYPE) : void
             + removeComponent<TYPE>() : void
             + getComponent<TYPE>() : TYPE*
             + getComponent<TYPE>() : vector<TYPE>
 
             + update() : void
+
+            + destroy() : void
         }
 
         abstract class Component
@@ -212,13 +240,15 @@ namespace fce {
 
             class RenderComponent
             {
-                + m_meshIndex : LogicalIndex
+                + m_geometryReference : GeometryReference
                 + m_instanceIndex : LogicalIndex
 
                 + RenderComponent()
-                + RenderComponent(in meshIndex : LogicalIndex, in instanceIndex : LogicalIndex)
+                + RenderComponent(in geometryReference : GeometryReference, in instanceIndex : LogicalIndex)
 
                 + RenderComponent()
+
+                + refreshRender() : void
             }
             EngineComponent <|-- RenderComponent
 
@@ -242,6 +272,10 @@ namespace fce {
                 + ZOMBIE,
                 + CAMERA_MANAGER,
                 + PLAYER_MANAGER,
+                + SHOOTER,
+                + BULLET,
+                + PARTICLE_GENERATOR,
+                + PARTICLE,
                 + DEBUG_POSITION
             }
 
@@ -329,6 +363,55 @@ namespace fce {
             }
             ScriptComponent <|-- CameraManagerComponent
 
+            class BulletComponent
+            {
+                - m_bulletSpeed : float
+                - m_lifeTime : double
+                - m_currentLifeTime : double
+
+                + BulletComponent()
+                + BulletComponent(in bulletSpeed : float, in lifeTime : double)
+            }
+            ScriptComponent <|-- BulletComponent
+
+            class ShooterComponent
+            {
+                - m_bulletTargetId : LogicalIndex
+                - m_bulletData : BulletComponent
+
+                + ShooterComponent()
+                + ShooterComponent(in bulletTargetId : LogicalIndex, in bulletSpeed : float)
+
+                + update() : void
+            }
+            ScriptComponent <|-- ShooterComponent
+
+            class ParticleComponent
+            {
+                - m_particleSpeed : float
+                - m_lifeTime : double
+                - m_currentLifeTime : double
+
+                + ParticleComponent()
+                + ParticleComponent(in particleSpeed : float, in lifeTime : double)
+            }
+            ScriptComponent <|-- ParticleComponent
+
+            class ParticleGeneratorComponent
+            {
+                - m_particleTargetId : LogicalIndex
+                - m_particleData : ParticleComponent
+                - m_generateFrequency : double
+                - m_currentGenerateFrequency : double
+
+                + ParticleGeneratorComponent()
+                + ParticleGeneratorComponent(in particleTargetId : LogicalIndex, 
+                    in particleData : ParticleComponent, in generateFrequency : double)
+
+                + update() : void
+            }
+            ScriptComponent <|-- ParticleGeneratorComponent
+
             class DebugPositionComponent
             {
                 + DebugPositionComponent()
@@ -337,6 +420,155 @@ namespace fce {
             }
             ScriptComponent <|-- DebugPositionComponent
         }
+    }
+
+    namespace physics
+    {
+        class PhyscisEngine
+        {
+            - m_broadphaseEngine : unique_ptr<BroadphaseEngine>
+            - m_narrowphaseEngine : NarrowphaseEngine
+            - m_contactSolver : ContactSolver
+            - m_objectManager : shared_ptr<ObjectManager>
+            - m_updateContext : shared_ptr<UpdateContext>
+            - m_physicsWorld : PhysicsWorld
+
+            + initialize(in objectManager : shared_ptr<ObjectManager>) : void
+
+            + getPhysicsWorld() : PhysicsWorld
+
+            + stopEngin() : void
+            + startSyncFromScene() : void
+            + endSyncFromScene() : void
+            + update() : void
+
+            - integrateForces() : void
+            - doBroadphase() : void
+            - doNarrowphase() : void
+            - solveContacts() : void
+            - fixContacts() : void
+            - syncToScene() : void
+        }
+
+        class PhysicsWorld
+        {
+            - m_physicsObjects : PhysicsObjectManager
+
+            + addPhysicsObject(in gameObject : GameObject) : void
+            + freePhysicsObject(in gameObject : GameObject) : void
+            + onUpdatedPosition(in gameObject : GameObject) : void
+            + onForceApplied(in gameObject : GameObject) : void
+
+            + getPhysicsObjects() : PhysicsObjectManager
+        }
+
+        class PhysicsObjectManager
+        {
+            - m_physicsObject : PageBasedAllocator
+            - m_logicalIndexToPhysical : vector<uint32_t>
+
+            + initialize() : void
+
+            + getPhysicsObjectPageSize() : uint64_t
+            + getNbMaxPhysicsObjects() : uint64_t
+            + getNbPhysicsObjects() : uint32_t
+
+            + get(in index : LogicalIndex) : PhysicsObject
+            + iterateOverPhysicsObjects() : iterator<PhysicsObject>
+            + add(in index : LogicalIndex, in physicsObject : PhysicsObject) : PhysicalIndex
+            + free(in index : LogicalIndex) : void
+        }
+
+        enum BodyType
+        {
+
+        }
+
+        class PhysicsObject
+        {
+            - m_bodyType : BodyType
+            - m_position : XMFLOAT3
+            - m_rotation : Quaternion
+            - m_linearVelocity : XMFLOAT3
+            - m_forceAccumulator : XMFLOAT3
+            - m_angularVelocity : XMFLOAT3
+            - m_torqueAccumulator : XMFLOAT3
+            - m_mass : float
+            - m_invertMass : float
+            - m_inverseInertiaTensor : Matrix3
+            - m_collider : unique_ptr<Collider>
+        }
+
+        class Contact
+        {
+            - m_leftGameObjectIndex : LogicalIndex
+            - m_rightGameObjectIndex : LogicalIndex
+            - m_point : XMFLOAT3
+            - m_normalLeftToRight : XMFLOAT3
+            - m_depth : float
+            - m_restitution : float
+            - m_friction : float
+
+            + getLeftIndex() : LogicalIndex
+            + getRightIndex() : LogicalIndex
+            + swapLeftToRigh() : void
+        }
+
+        abstract BroadphaseEngine
+        {
+            + {virtual} initialize() : void
+            + {virtual} build(in objects : vector<PhysicsObject>) : void
+            + {virtual} add(in objectIndex : LogicalIndex, in bounds : AABB) : void
+            + {virtual} remove(in objectIndex : LogicalIndex) : void
+            + {virtual} update(in objectIndex : LogicalIndex, in bounds : AABB) : void
+            + {virtual} computePairs(out : vector<pair<LogicalIndex, LogicalIndex>>) : void
+        }
+    
+        class BvhEngine
+        {
+
+        }
+        BroadphaseEngine <|-- BvhEngine
+
+        struct AABB
+        {
+            + m_min : XMFLOAT3
+            + m_max : XMFLOAT3
+        }
+
+        class NarrowphaseEngine
+        {
+            + generateContacts(in pairs : vector<pair<LogicalIndex, LogicalIndex>>,
+                out contacts : vector<Contact>) : void
+        }
+
+        class ContactSolver
+        {
+            + {virtual} solve(in contacts : vector<Contact>) : void
+        }
+
+        abstract Collider
+        {
+
+        }
+
+        class CircleCollider
+        {
+
+        }
+        Collider <|-- CircleCollider
+
+        class BoxCollider
+        {
+
+        }
+        Collider <|-- BoxCollider
+
+        class OrientedBoxCollider
+        {
+
+        }
+        Collider <|-- OrientedBoxCollider
     }
 
     namespace io {
@@ -387,7 +619,149 @@ namespace fce {
             - loadZombieComponent(in root : XMLElement) : ZombieComponent
             - loadCameraManagerComponent(in root : XMLElement) : CameraManagerComponent
             - loadPlayerManagerComponent(in root : XMLElement) : PlayerManagerComponent
+            - loadBulletComponent(in root : XMLElement) : BulletComponent
+            - loadShooterComponent(in root : XMLElement) : ShooterComponent
+            - loadParticleComponent(in root : XMLElement) : ParticleComponent
+            - loadParticleGeneratorComponent(in root : XMLElement) : ParticleGeneratorComponent
             - loadDebugPositionComponent(in root : XMLElement) : DebugPositionComponent
+        }
+
+        namespace server {
+            class RemoteController
+            {
+                # m_listenAddress : string
+                # m_listenPort : string
+
+                + RemoteController(in listenAddress : string, in listenPort : string)
+
+                + {abstract} run() : void
+                + {abstract} stop() : void
+
+                + getListenAddress() : string
+                + getListenPort() : string
+            }
+
+            class HttplibRemoteController
+            {
+                - m_server : std::unique_ptr<httplib::Server>
+                - m_thread : std::thread
+                - m_running : std::atomic<bool>
+                - m_queue : shared_ptr<RemoteCommandQueue>
+
+                + HttplibRemoteController(in listenAddress : string, in listenPort : string,
+                    queue : shared_ptr<RemoteCommandQueue>)
+
+                + run() : void
+                + stop() : void
+            }
+            RemoteController <|-- HttplibRemoteController
+
+            enum RemoteRequestType
+            {
+                + TELEPORTATION
+            }
+
+            struct RemoteRequest
+            {
+                + m_type : RemoteRequestType
+                + m_data : std::variant<RemoteRequestTeleportation>
+            }
+
+            struct RemoteRequestTeleportation
+            {
+                + m_position : XMFLOAT3
+            }
+
+            class RemoteCommandQueue
+            {
+                - m_queue : queue<RemoteRequest>
+                - m_mutex : mutex
+
+                + RemoteCommandQueue()
+                + push(in request : RemoteRequest) : void
+                + pop() : optional<RemoteRequest>
+            }
+        }
+    }
+
+    namespace benchmark
+    {
+        class Benchmark
+        {
+            - m_hInstance : HINSTANCE
+            - m_hWnd : HWND
+            - m_widht : uint32_t
+            - m_height : uint32_t
+            - m_pathFileScene : string
+            - m_isInit : bool
+            - m_application : BenchmarkApplication
+            - m_benchmarkConfig : BenchmarkConfig
+            - m_startTime : time_point
+            - m_isBenchmarkRunning : bool
+            - m_isMouseLocked : bool
+
+            + Benchmark(in hInstance : HINSTANCE, in width : uint32_t, in height : uint32_t,
+                in m_pathFileScene : string, in benchmarkConfig : BenchmarkConfig)
+
+            + initialize() : void
+            + run() : int
+
+            - messageHandler(in hWnd : HWND, in message : UINT, in wParam : WPARAM, in lParam : LPARAM) : LRESULT
+
+            - registerWindowClass() : bool
+            - createAppWindow() : bool
+            - initializeRenderer() : bool
+
+            - {static} windowHandler(in hWnd : HWND, in message : UINT, 
+                in wParam : WPARAM, in lParam : LPARAM) : LRESULT
+        }
+
+        class BenchmarkApplication
+        {
+            - m_config : BenchmarkConfig
+            - m_eventRecorder : EventRecorder
+
+            + initialize(in hWnd : HWND, in width : uint32_t, in height : uint32_t,
+                in m_pathFileScene : string, in config : BenchmarkConfig) : void
+
+            + update() : void
+            + stopBenchmark() : void
+        }
+        Application <|-- BenchmarkApplication
+
+        struct BenchmarkConfig
+        {
+            + m_duration : double
+            + m_outputFile : string
+        }
+
+        class EventRecorder
+        {
+            - m_events : unordered_map<string, EventData>
+            + initialize() : void
+            + getEventData(in name : string) : EventData
+            + getAllEvents() : unordered_map<string, EventData>
+            + startEvent(in name : string) : void
+            + endEvent(in name : string) : void
+        }
+
+        struct Event
+        {
+            - m_duration : double
+            - m_start : time_point
+        }
+
+        struct EventData
+        {
+            + m_events : vector<Event>
+        }
+
+        class ExporterEvents
+        {
+            - m_config : BenchmarkConfig
+            + initialize(in config : BenchmarkConfig) : void
+            + exportEvents(in recorder : EventRecorder) : void
+            - computePercentile(in values : vector<double>, in percentile : double) : double
         }
     }
 }

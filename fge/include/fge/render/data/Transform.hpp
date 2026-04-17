@@ -157,4 +157,15 @@ namespace fge
             );
         }
     };
+
+    inline bool operator==(const Transform& lhs, const Transform& rhs)
+    {
+        return float3Equal(lhs.m_position, rhs.m_position) &&
+            lhs.m_basis == rhs.m_basis;
+    }
+
+    inline bool operator!=(const Transform& lhs, const Transform& rhs)
+    {
+        return !(lhs == rhs);
+    }
 }

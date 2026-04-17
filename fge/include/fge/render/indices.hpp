@@ -9,7 +9,7 @@ namespace fge
     {
         uint32_t m_index;
 
-        constexpr LogicalIndex() : m_index(0) {};
+        constexpr LogicalIndex() : m_index(UINT32_MAX) {};
         constexpr LogicalIndex(const uint32_t index) noexcept : m_index(index) {};
         ~LogicalIndex() = default;
 
@@ -24,6 +24,8 @@ namespace fge
         constexpr bool operator!=(const LogicalIndex& other) const 
             { return m_index != other.m_index; }
     };
+
+    constexpr LogicalIndex NULL_LOGICAL_INDEX = { UINT32_MAX };
 
     struct PhysicalIndex
     {
@@ -44,6 +46,8 @@ namespace fge
         constexpr bool operator!=(const PhysicalIndex& other) const 
             { return m_index != other.m_index; }
     };
+
+    constexpr PhysicalIndex NULL_PHYSICAL_INDEX = { UINT32_MAX };
 }
 
 template<> struct std::hash<fge::LogicalIndex>

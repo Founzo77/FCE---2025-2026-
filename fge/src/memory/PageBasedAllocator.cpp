@@ -27,6 +27,11 @@ namespace fge
         other.m_strideSize = 0;
     }
 
+    PageBasedAllocator::~PageBasedAllocator()
+    {
+        reset();
+    }
+
     void PageBasedAllocator::initialize(uint64_t nbMaxElements, uint64_t strideSize)
     {
         m_nbMaxElements = nbMaxElements;
@@ -38,6 +43,20 @@ namespace fge
         m_freePool.reserve(nbMaxElements);
         for (uint64_t i = 0; i < nbMaxElements; ++i)
             m_freePool.push_back(nbMaxElements - 1 - i); // stack LIFO
+    }
+
+    void PageBasedAllocator::reset()
+    {
+        m_nbMaxElements = 0;
+        m_nbElements = 0;
+        m_strideSize = 0;
+        m_greatestIndexOccupy = 0;
+        m_occupancyBitmap.clear();
+        m_occupancyBitmap.shrink_to_fit();
+        m_freePool.clear();
+        m_freePool.shrink_to_fit();
+        m_buffer.clear();
+        m_buffer.shrink_to_fit();
     }
 
     uint64_t PageBasedAllocator::alloc()

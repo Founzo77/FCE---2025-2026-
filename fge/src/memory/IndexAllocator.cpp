@@ -33,7 +33,7 @@ namespace fge
     {
         throwIfFailed(m_nbElements < m_nbMaxElements, "IndexAllocator::alloc: Full");
         
-        for (int64_t i = static_cast<int64_t>(m_nbMaxElements) - 1; i >= 0; --i)
+        for (int64_t i = static_cast<int64_t>(m_nbMaxElements) - 1; i >= 0; i--)
         {
             if (!m_occupancyBuffer[i])
             {
@@ -60,5 +60,39 @@ namespace fge
             "IndexAllocator::free: index not allocated");
         m_occupancyBuffer[index] = false;
         m_nbElements--;
+    }
+
+    CompactIndexAllocator::CompactIndexAllocator() : IndexAllocator()
+    {
+
+    }
+
+    CompactIndexAllocator::CompactIndexAllocator(const CompactIndexAllocator& other) 
+        : IndexAllocator(other)
+    {
+
+    }
+
+    CompactIndexAllocator::CompactIndexAllocator(CompactIndexAllocator&& other)
+        : IndexAllocator(std::move(other))
+    {
+
+    }
+
+    uint64_t CompactIndexAllocator::alloc()
+    {
+        throwIfFailed(m_nbElements < m_nbMaxElements, "IndexAllocator::alloc: Full");
+        
+        for (int64_t i = 0; i < m_nbMaxElements; i++)
+        {
+            if (!m_occupancyBuffer[i])
+            {
+                m_occupancyBuffer[i] = true;
+                ++m_nbElements;
+                return static_cast<uint64_t>(i);
+            }
+        }
+
+        return 0;
     }
 }

@@ -12,6 +12,11 @@ namespace fge
 
     }
 
+    UploadBuffer::~UploadBuffer()
+    {
+        reset();
+    }
+
     void UploadBuffer::initialize(ComPtr<ID3D12Device5> device, uint64_t size)
     {
         m_size = size;
@@ -22,6 +27,12 @@ namespace fge
     {
         m_buffer.Reset();
         initialize(device, size);
+    }
+
+    void UploadBuffer::reset()
+    {
+        m_buffer.Reset();
+        m_size = 0;
     }
 
     void UploadBuffer::upload(const void* data, uint64_t size)

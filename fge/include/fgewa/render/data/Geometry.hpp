@@ -25,12 +25,12 @@ namespace fgewa
         Geometry() = default;
         ~Geometry();
 
-        Geometry(const Geometry&) = default;
-        Geometry& operator=(const Geometry&) = default;
-        Geometry(Geometry&&) = default;
-        Geometry& operator=(Geometry&&) = default;
+        Geometry(const Geometry&) = delete;
+        Geometry& operator=(const Geometry&) = delete;
+        Geometry(Geometry&& other);
+        Geometry& operator=(Geometry&& other);
         
-        void initialize(shared_ptr<Device> device, const fge::Mesh& meshData);
+        void initialize(shared_ptr<Device> device, const fge::Mesh& meshData, const uint32_t subMeshId);
         void reset();
         ANARIGeometry getHandle() noexcept;
         const ANARIGeometry getHandle() const noexcept;

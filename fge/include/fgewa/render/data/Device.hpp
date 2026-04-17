@@ -15,14 +15,15 @@ namespace fgewa
         Device() = default;
         ~Device();
 
-        Device(const Device&) = default;
-        Device& operator=(const Device&) = default;
-        Device(Device&&) = default;
-        Device& operator=(Device&&) = default;
+        Device(const Device&) = delete;
+        Device& operator=(const Device&) = delete;
+        Device(Device&& other);
+        Device& operator=(Device&& other);
         
-        void initialize(Library& library);
+        void initialize(Library& library, ANARIStatusCallback callBack);
         void reset();
         ANARIDevice getHandle() noexcept;
         const ANARIDevice getHandle() const noexcept;
+        void logSupportedExtensions();
     };
 }

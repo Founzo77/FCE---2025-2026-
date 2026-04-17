@@ -2,22 +2,27 @@
 
 #include "UpdateContext.hpp"
 #include "objects/ObjectManager.hpp"
+#include "io/server/RemoteController.hpp"
 
-#include <fge/Application.hpp>
+#include <fge/FgeApplication.hpp>
 
-#include <Windows.h>
+#include <fge/PlatformWindows.hpp>
 
 #include <string>
+#include <memory>
 
 using std::string;
+using std::unique_ptr;
 
 namespace fce
 {
     class Application
     {
-    private:
-        fge::Application m_renderApplication;
+    protected:
+        unique_ptr<fge::FgeApplication> m_renderApplication;
         ObjectManager m_objectManager;
+        unique_ptr<RemoteController> m_remoteController;
+        shared_ptr<RemoteCommandQueue> m_remoteCommandQueue;
         UpdateContext m_updateContext;
 
     public:

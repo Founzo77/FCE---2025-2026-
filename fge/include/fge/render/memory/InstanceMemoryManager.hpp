@@ -8,7 +8,7 @@
 #include "../../memory/CompactStackAllocator.hpp"
 #include "../../memory/IndexRange.hpp"
 
-#include <Windows.h>
+#include "../../PlatformWindows.hpp"
 #include <wrl/client.h>
 #include <d3d12.h>
 
@@ -21,6 +21,7 @@ namespace fge
 {
     class Instance;
     class MeshMemoryManager;
+    class VolumeMemoryManager;
 
     class InstanceMemoryManager
     {
@@ -39,16 +40,19 @@ namespace fge
 
     public:
         InstanceMemoryManager() = default;
-        ~InstanceMemoryManager() = default;
+        ~InstanceMemoryManager();
 
         void startInitialize();
         void moveAllToDevice(ComPtr<ID3D12Device5> device, 
-            ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory);
+            ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory,
+            VolumeMemoryManager& volumeMemoryManager);
     private:
         void initializeTlas(ComPtr<ID3D12Device5> device, 
-            ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory);
+            ComPtr<ID3D12GraphicsCommandList4> directCommandList);
     public:
         void endInitialize();
+
+        void reset();
 
         uint64_t getInstancePageSize() const;
         uint64_t getNbMaxInstances() const;
@@ -62,10 +66,11 @@ namespace fge
         PageBasedAllocator::OccupiedElementRange<Instance> iterateOverInstances();
         
         void updateDevice(ComPtr<ID3D12Device5> device, 
-            ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory);
+            ComPtr<ID3D12GraphicsCommandList4> directCommandList, MeshMemoryManager& meshMemory,
+            VolumeMemoryManager& volumeMemoryManager);
     private:
         void updateInstanceDescUploadBuffer(ComPtr<ID3D12Device5> device, 
-            MeshMemoryManager& meshMemory);
+            MeshMemoryManager& meshMemory, VolumeMemoryManager& volumeMemoryManager);
         void updateResizedTlas(ComPtr<ID3D12Device5> device, 
             ComPtr<ID3D12GraphicsCommandList4> directCommandList);
         void updateTransformedTlas(ComPtr<ID3D12GraphicsCommandList4> directCommandList);

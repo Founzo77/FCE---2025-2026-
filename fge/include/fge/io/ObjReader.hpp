@@ -1,5 +1,8 @@
 #pragma once
 
+#include <oneapi/tbb/concurrent_vector.h>
+#include <oneapi/tbb/concurrent_unordered_map.h>
+
 #include "../render/data/Mesh.hpp"
 #include "../render/data/Material.hpp"
 
@@ -12,28 +15,19 @@ using std::vector;
 using std::string;
 using std::unordered_map;
 
+using oneapi::tbb::concurrent_vector;
+using oneapi::tbb::concurrent_unordered_map;
+
 namespace fge
 {
     class ObjReader
     {
     public:
-        Mesh m_mesh;
-        vector<Material> m_materials;
-        vector<string> m_texturePathFiles;
-        unordered_map<string, uint32_t> m_nameMaterialToTextureIndex;
-        unordered_map<string, uint32_t> m_pathTextureToTextureIndex;
-        unordered_map<string, uint32_t> m_nameMaterialToMaterialIndex;
-
-    public:
-        ObjReader(const string& pathFile, const XMFLOAT3& translation, 
-            const XMFLOAT3& rotation, const float scale);
-
-    public:
         static void read(const string& pathFile, const XMFLOAT3& translation, 
             const XMFLOAT3& rotation, const float scale, 
-            Mesh& mesh, vector<Material>& materials, vector<string>& texturePathFiles, 
-            unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
-            unordered_map<string, uint32_t>& pathTextureToTextureIndex,
+            Mesh& mesh, vector<Material>& materials, concurrent_vector<string>& texturePathFiles, 
+            concurrent_unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
+            concurrent_unordered_map<string, uint32_t>& pathTextureToTextureIndex,
             unordered_map<string, uint32_t>& nameMaterialToMaterialIndex);
     };
 }

@@ -2,7 +2,7 @@
 
 #include "render/FgeScene.hpp"
 
-#include <Windows.h>
+#include "PlatformWindows.hpp"
 
 #include <memory>
 

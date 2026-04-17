@@ -17,6 +17,11 @@ using std::vector;
 
 namespace fge
 {
+    Scene::~Scene()
+    {
+        reset();
+    }
+
     void Scene::buildScene(ComPtr<ID3D12Device5> device, 
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
@@ -35,12 +40,19 @@ namespace fge
         // TO_DO : Log de la scene
     }
 
-    const shared_ptr<SceneMemoryManager> fge::Scene::getMemory() const
+    void Scene::reset()
+    {
+        if(m_memory)
+            m_memory->reset();
+        m_memory.reset();
+    }
+
+    const shared_ptr<SceneMemoryManager> Scene::getMemory() const
     {
         return m_memory;
     }
 
-    const Light& fge::Scene::getLight(const LogicalIndex lightIndex)
+    const Light& Scene::getLight(const LogicalIndex lightIndex)
     {
         return m_memory->getLight(lightIndex);
     }
@@ -110,9 +122,39 @@ namespace fge
         m_memory->setCamera(m_camera);
     }
 
-    void fge::Scene::setCamera(const Camera& camera)
+    void Scene::setCamera(const Camera& camera)
     {
         m_camera = camera;
         m_memory->setCamera(m_camera);
+    }
+
+    uint32_t Scene::getNbMaxMeshes()
+    {
+        return m_memory->getNbMaxMeshes();
+    }
+
+    uint32_t Scene::getNbMaxSubMeshes()
+    {
+        return m_memory->getNbMaxSubMeshes();
+    }
+
+    uint32_t Scene::getNbMaxInstances()
+    {
+        return m_memory->getNbMaxInstances();
+    }
+
+    uint32_t Scene::getNbMaxMaterials()
+    {
+        return m_memory->getNbMaxMaterials();
+    }
+
+    uint32_t Scene::getNbMaxTextures()
+    {
+        return m_memory->getNbMaxTextures();
+    }
+
+    uint32_t Scene::getNbMaxLights()
+    {
+        return m_memory->getNbMaxLights();
     }
 }

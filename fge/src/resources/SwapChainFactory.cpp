@@ -8,6 +8,13 @@ namespace fge
         ComPtr<ID3D12CommandQueue> commandQueue, uint32_t width, uint32_t height, 
         uint32_t nbFrame)
     {
+        return buildSwapChainV4(hWnd, commandQueue.Get(), width, height, nbFrame);
+    }
+
+    ComPtr<IDXGISwapChain4> SwapChainFactory::buildSwapChainV4(HWND hWnd, 
+        ID3D12CommandQueue* commandQueue, uint32_t width, uint32_t height, 
+        uint32_t nbFrame)
+    {
         ComPtr<IDXGISwapChain4> swapChain4;
         ComPtr<IDXGIFactory4> factory4;
 
@@ -33,7 +40,7 @@ namespace fge
         swapChainDesc.Flags = checkTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
         
         ComPtr<IDXGISwapChain1> swapChain1;
-        throwIfFailed(factory4->CreateSwapChainForHwnd(commandQueue.Get(), hWnd,
+        throwIfFailed(factory4->CreateSwapChainForHwnd(commandQueue, hWnd,
             &swapChainDesc, nullptr, nullptr, &swapChain1),
             "Failed to create IDXGISwapChain1");
 

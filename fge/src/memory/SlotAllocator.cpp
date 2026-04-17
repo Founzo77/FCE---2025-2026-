@@ -22,11 +22,24 @@ namespace fge
         other.m_nbElements = 0;
     }
 
+    SlotAllocator::~SlotAllocator()
+    {
+        reset();
+    }
+
     void SlotAllocator::initialize(uint64_t nbMaxElements)
     {
         m_nbMaxElements = nbMaxElements;
         m_nbElements = 0;
         m_occupancyBuffer.assign(nbMaxElements, 0);
+    }
+
+    void SlotAllocator::reset()
+    {
+        m_nbMaxElements = 0;
+        m_nbElements = 0;
+        m_occupancyBuffer.clear();
+        m_occupancyBuffer.shrink_to_fit();
     }
 
     uint64_t SlotAllocator::alloc(const uint64_t count)

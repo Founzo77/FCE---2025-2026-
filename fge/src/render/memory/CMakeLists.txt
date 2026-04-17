@@ -8,5 +8,6 @@ target_sources(fge PRIVATE
     TextureMemoryManager.cpp
     MaterialMemoryManager.cpp
     MeshMemoryManager.cpp
+    VolumeMemoryManager.cpp
     InstanceMemoryManager.cpp
     LightMemoryManager.cpp)

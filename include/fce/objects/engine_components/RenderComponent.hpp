@@ -3,21 +3,23 @@
 #include "EngineComponent.hpp"
 
 #include <fge/render/indices.hpp>
+#include <fge/render/data/GeometryReference.hpp>
 
 using fge::LogicalIndex;
+using fge::GeometryReference;
 
 namespace fce
 {
     class RenderComponent : public EngineComponent
     {
     public:
-        LogicalIndex m_meshIndex;
+        GeometryReference m_geometryReference;
         LogicalIndex m_instanceIndex;
 
     public:
         RenderComponent() = default;
-        RenderComponent(const LogicalIndex meshIndex, const LogicalIndex instanceIndex) : 
-            m_meshIndex(meshIndex), m_instanceIndex(instanceIndex) {}
+        RenderComponent(const GeometryReference geometryReference, const LogicalIndex instanceIndex) : 
+            m_geometryReference(geometryReference), m_instanceIndex(instanceIndex) {}
         virtual ~RenderComponent() = default;
 
         RenderComponent(const RenderComponent&) = default;
@@ -25,5 +27,7 @@ namespace fce
 
         RenderComponent& operator=(const RenderComponent&) = default;
         RenderComponent& operator=(RenderComponent&&) = default;
+
+        void refreshRender();
     };
 }

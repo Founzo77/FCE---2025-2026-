@@ -27,12 +27,12 @@ namespace fce
 
     GameObject& GameObjectMemoryManager::get(const LogicalIndex gameObjectIndex)
     {
-        return m_objectsPool.get<GameObject>(gameObjectIndex.m_index);
+        return m_objectsPool.get<GameObject>(m_logicalIndexToPhysical[gameObjectIndex.m_index]);
     }
 
     const GameObject& GameObjectMemoryManager::get(const LogicalIndex gameObjectIndex) const
     {
-        return m_objectsPool.get<GameObject>(gameObjectIndex.m_index);
+        return m_objectsPool.get<GameObject>(m_logicalIndexToPhysical[gameObjectIndex.m_index]);
     }
 
     PageBasedAllocator::OccupiedElementRange<GameObject> 
@@ -41,11 +41,10 @@ namespace fce
         return m_objectsPool.occupiedElements<GameObject>();
     }
 
-    PhysicalIndex GameObjectMemoryManager::add(
-        GameObject&& gameObject, const LogicalIndex gameObjectIndex)
+    PhysicalIndex GameObjectMemoryManager::add(GameObject&& gameObject)
     {
         uint32_t physicalMeshIndex = m_objectsPool.alloc();
-        m_logicalIndexToPhysical[gameObjectIndex.m_index] = physicalMeshIndex;
+        m_logicalIndexToPhysical[gameObject.getIndex().m_index] = physicalMeshIndex;
         new (m_objectsPool[physicalMeshIndex]) GameObject(std::move(gameObject));
 
         return { physicalMeshIndex };

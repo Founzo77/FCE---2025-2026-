@@ -42,6 +42,11 @@ namespace fge
         other.m_greatestIndexOccupy = 0;
     }
 
+    SafePageBasedAllocator::~SafePageBasedAllocator()
+    {
+        reset();
+    }
+
     void SafePageBasedAllocator::initialize(uint64_t nbMaxElements, uint64_t strideSize)
     {
         throwIfFailed(m_nbMaxElements == 0, 
@@ -58,6 +63,24 @@ namespace fge
         m_freePool.reserve(nbMaxElements);
         for (uint64_t i = 0; i < nbMaxElements; ++i)
             m_freePool.push_back(nbMaxElements - 1 - i); // LIFO
+    }
+
+    void SafePageBasedAllocator::reset()
+    {
+        m_nbMaxElements = 0;
+        m_nbElements = 0;
+        m_strideSize = 0;
+        m_greatestIndexOccupy = 0;
+
+        m_occupancyBitmap.clear();
+        m_freePool.clear();
+        m_buffer.clear();
+        m_nbReferenced.clear();
+
+        m_occupancyBitmap.shrink_to_fit();
+        m_freePool.shrink_to_fit();
+        m_buffer.shrink_to_fit();
+        m_nbReferenced.shrink_to_fit();
     }
 
     uint64_t SafePageBasedAllocator::alloc()

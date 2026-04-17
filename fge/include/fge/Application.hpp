@@ -2,8 +2,9 @@
 
 #include "FgeApplication.hpp"
 #include "render/MainRenderer.hpp"
+#include "render/Scene.hpp"
 
-#include <Windows.h>
+#include "PlatformWindows.hpp"
 #include <wrl/client.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -18,7 +19,7 @@ using std::shared_ptr;
 
 namespace fge
 {
-    class Scene;
+    //class Scene;
     class SceneDescription;
 
     class Application : public FgeApplication
@@ -32,16 +33,17 @@ namespace fge
         bool m_isVSync;
 
     public:
-        virtual ~Application() = default;
+        virtual ~Application();
 
-        void initializeSystem();
+        void initializeSystem() override;
         void initializeMainRenderer(HWND hWnd, uint32_t width, uint32_t height, 
-            SceneDescription& sceneDescription);
-        void update();
-        void stopEngine();
+            SceneDescription& sceneDescription) override;
+        void update() override;
+        void stopEngine() override;
+        void reset();
 
-        shared_ptr<FgeScene> getScene();
-        void resize(const uint32_t width, const uint32_t height);
+        shared_ptr<FgeScene> getScene() override;
+        void resize(const uint32_t width, const uint32_t height) override;
         
         shared_ptr<Scene> getDirectScene();
         MainRenderer& getRender();

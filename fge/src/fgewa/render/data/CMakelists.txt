@@ -11,4 +11,8 @@ target_sources(fge PRIVATE
     Material.cpp
     Renderer.cpp
     Surface.cpp
-    World.cpp)
+    World.cpp
+    Texture2D.cpp
+    Texture3D.cpp
+    Volume.cpp
+    ImplementationCapability.cpp)

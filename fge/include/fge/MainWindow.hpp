@@ -2,7 +2,7 @@
 
 #include "FgeApplication.hpp"
 
-#include <Windows.h>
+#include "PlatformWindows.hpp"
 
 #include <memory>
 #include <string>

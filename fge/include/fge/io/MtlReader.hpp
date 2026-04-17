@@ -1,5 +1,8 @@
 #pragma once
 
+#include <oneapi/tbb/concurrent_vector.h>
+#include <oneapi/tbb/concurrent_unordered_map.h>
+
 #include <fge/render/data/Material.hpp>
 
 #include <vector>
@@ -11,27 +14,18 @@ using std::vector;
 using std::string;
 using std::unordered_map;
 
+using oneapi::tbb::concurrent_vector;
+using oneapi::tbb::concurrent_unordered_map;
+
 namespace fge
 {
     class MtlReader
     {
     public:
-        vector<Material> m_materials;
-        vector<string> m_texturePathFiles;
-        unordered_map<string, uint32_t> m_nameMaterialToTextureIndex;
-        unordered_map<string, uint32_t> m_pathTextureToTextureIndex;
-        unordered_map<string, uint32_t> m_nameMaterialToMaterialIndex;
-
-    public:
-        MtlReader(const string& pathFile);
-
-    private:
-
-    public:
         void static read(const string& pathFile, vector<Material>& materials,
-            vector<string>& texturePathFiles,
-            unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
-            unordered_map<string, uint32_t>& pathTextureToTextureIndex,
+            concurrent_vector<string>& texturePathFiles,
+            concurrent_unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
+            concurrent_unordered_map<string, uint32_t>& pathTextureToTextureIndex,
             unordered_map<string, uint32_t>& nameMaterialToMaterialIndex);
     };
 }

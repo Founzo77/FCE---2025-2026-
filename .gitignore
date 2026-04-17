@@ -1,11 +1,4 @@
 .vscode/
 out/
-out_windows_0/
-out_windows_0_release/
-out_windows_1/
-out_windows_1_release/
-out_windows0/
-out_windows0_release/
-out_windows1/
-out_windows1_release/
-out_windows1_release_icx/
+out_*/
+build/

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DeviceCamera.hpp"
+#include "IntegratorType.hpp"
 
 namespace fge
 {
@@ -15,6 +16,10 @@ namespace fge
         float m_physicalHeight;
         float m_depth;
         uint32_t m_nbLights;
+        uint32_t m_backgroundTextureIndex;
+        IntegratorType m_integratorType;
+        uint32_t m_spp;
+        uint32_t m_sppIndex;
 
     public:
         DeviceConstantInformations() = default;

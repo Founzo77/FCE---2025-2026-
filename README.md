@@ -3,254 +3,149 @@
 Personal Project<br>
 2025-2026
 
-FCE (Founzo Control Engine) is a real-time interactive engine built on top of FGE (Founzo Graphics Engine), a DirectX 12 GPU ray-tracing renderer.
-FCE adds a full game-style runtime layer on top of FGE, providing input handling, scene logic, scripting, cameras, and object management.
+FCE (Founzo Creativity Engine) is a real-time interactive engine built on top of FGE, a GPU ray-tracing renderer primarily based on DirectX 12, with optional support for ANARI through an abstraction layer.
 
 ## Motivation
 
-The main goal of this project is to deeply understand modern low-level rendering APIs, with a particular focus on DirectX 12 and GPU ray tracing (DXR).
+The goal of this project is to deeply understand low-level GPU rendering and ray tracing pipelines, while experimenting with abstraction layers for portability.
 
-Building a real-time ray tracing engine from scratch makes it possible to truly understand:
-- how data flows from CPU to GPU,
-- how ray tracing pipelines are built and dispatched,
-- how scene updates affect performance and memory layout.
+Key objectives:
+- Master DirectX 12 and DXR internals
+- Design a modular rendering abstraction (FGE Abstract)
+- Compare rendering backends (DirectX12 vs ANARI implementations)
 
-Beyond the technical challenge, this project is also driven by pure interest and fun:
-creating a real-time ray-traced engine that can be used to:
+Beyond the technical challenge, this project is also driven by pure interest and fun: creating a real-time ray-traced engine that can be used to:
 - test new rendering ideas,
 - and serve as a base for future academic and personal projects.
 
-FCE is meant to be a long-term engine that grows with new experiments in rendering, simulation, and interaction.
-
 ## Project Overview
 
-FCE is composed of two main layers:
+FCE is organized into three layers:
 
-| Layer | Role |
-|-------|------|
-| FGE | Low-level rendering engine based on DirectX 12 DXR (BVH, shaders, GPU memory, ray dispatch) |
-| FCE | High-level runtime: windowing, input, game objects, components, scripts, camera & scene interaction |
+| Layer | Description |
+|-------|-------------|
+| FCE | Interactive runtime (application, ECS, input, scripting) |
+| FGE Abstract | Rendering abstraction layer |
+| Backends | DirectX12 (FGE) or ANARI implementations |
 
-FGE provides a fully GPU-driven ray tracing renderer supporting:
-- triangle meshes
-- textures
-- materials
-- lights
-- TLAS / BLAS
-- physically-based camera
+Global stack between FCE / FGE / ANARI:
+<figure style="text-align:center;"> <img src="images/stack.png" width="500"> </figure>
 
-FCE wraps FGE with:
-- a Windows application layer
-- an entity / component system
-- a scripting system
-- XML-based scene loading
-- real-time input & camera control
+## Key Concepts
 
-This separation allows FGE to remain a pure rendering engine, while FCE becomes a real-time interactive engine.
+### FCE (Runtime)
 
-Here are some images showing the engine's visual capabilities:
+- GameObject / Component system
+- Script-driven behaviors
+- Input & camera management
+- Real-time scene updates
 
-<figure style="text-align:center;">
-    <table align="center">
-        <tr>
-            <td>
-                <img src="images/car.png">
-            </td>
-            <td>
-                <img src="images/interior.png">
-            </td>
-        </tr>
-    </table>
-</figure>
-<figure style="text-align:center;">
-    <table align="center">
-        <tr>
-            <td>
-                <img src="images/mirror.png">
-            </td>
-            <td>
-                <img src="images/reflection_window.png">
-            </td>
-        </tr>
-    </table>
-</figure>
+### FGE (Renderer)
 
-<figure style="text-align:center;">
-    <table align="center">
-        <tr>
-            <td>
-                <img src="images/multi_color.png">
-            </td>
-            <td>
-                <img src="images/multi_color_2.png">
-            </td>
-        </tr>
-    </table>
-</figure>
+- DXR ray tracing pipeline
+- TLAS / BLAS management
+- GPU memory managers
+- Materials, textures, lights
+- Can be used via a dedicated ANARI implementation
 
-## Key Features
+### FGE Abstract
 
-### Rendering (FGE)
-- DirectX 12 DXR ray tracing
-- Hardware-accelerated:
-    - BLAS / TLAS
-    - ray generation, miss & hit shaders
-- Physically-based camera
-- Textured materials
-- Multiple lights
-- GPU-resident scene memory
-- Real-time ray dispatch
+- Unified API for rendering
+- Backend switching (DX12 / ANARI)
+- Enables renderer benchmarking
 
-### Engine & Runtime (FCE)
-- Win32 application & window management
-- XML-based scene loading
-- Game-object / component system
-- Scriptable behaviors (player, camera, zombies, etc.)
-- Real-time keyboard & mouse input
-- First-person / third-person camera control
-- Multiple cameras & camera manager
-- Light and object tracking
-- Real-time scene updates propagated to the GPU
+## Rendering abstraction
 
-## Engine Architecture
+FCE object relationships:
+<figure style="text-align:center;"> <img src="images/relations_fce.png" width="600"> </figure>
 
-The engine is organized as a two-layer architecture:
+FGE can be used in two ways:
+- Native backend: DirectX12 ray tracing engine
+- ANARI backend: interoperability layer (fge/fgeia/) exposing FGE as an ANARI implementation
+This allows testing multiple renderers transparently.
 
-```
-+----------------------------+
-|           FCE              |
-|----------------------------|
-| GameObjects                |
-| Components                 |
-| Scripts                    |
-| Input                      |
-| Camera control             |
-| XML scene loader           |
-+-------------▲--------------+
-              |
-              |
-+-------------|--------------+
-|             FGE            |
-|----------------------------|
-| DirectX 12 device          |
-| Ray tracing pipeline (DXR) |
-| GPU scene memory           |
-| TLAS / BLAS                |
-| Shaders (DXIL)             |
-| Swap chain                 |
-+----------------------------+
-```
+## Rendering Backends (ANARI)
 
-FCE never talks to the GPU directly.
-It modifies the FGE Scene interface, which then updates GPU buffers, TLAS, materials, lights and camera.
+The abstraction allows testing external ANARI implementations:
 
-## Game Object System
+ANARI backends tested Visionaray, Barney, VisRTX:
+<figure style="text-align:center;"> <table align="center"> <tr> <td><img src="images/visionaray.png" width="300"></td> <td><img src="images/barney.png" width="300"></td> <td><img src="images/visrtx.png" width="300"></td> </tr> </table> </figure>
 
-FCE implements a hybrid ECS-like architecture:
+## FGE Rendering Features
 
-### GameObject
+FGE scene representation:
+<figure style="text-align:center;"> <img src="images/relations_fge.png" width="400"> </figure>
 
-A GameObject is a container of:
-- engine components (transform, render, camera, light)
-- script components (player, zombie, camera manager, etc.)
+### Phong Integrator
 
-### Engine Components
+FGE currently provides a Phong-based integrator:
 
-They represent the renderable & physical state:
+<figure style="text-align:center;"> <table align="center"> <tr> <td><img src="images/phong_car.png" width="300"></td> <td><img src="images/phong_multi_color.png" width="300"></td> <td><img src="images/phong_reflection_window.png" width="300"></td> </tr> </table> </figure>
 
-| Component | Role |
-|-----------|------|
-| `TransformComponent` | Position, orientation, scale |
-| `RenderComponent` | Mesh & instance link |
-| `CameraComponent` |Camera parameters |
-| `LightPointComponent` | Point light |
+### Path Tracer
 
-These components are synchronized with the FGE scene.
+A minimal path tracer is implemented:
+- Per-hitgroup BSDF: Explicit PDF + eval
+- SPP accumulation between frames
 
-### Script Components
+Path tracing - Cornell Box:
+<figure style="text-align:center;"> <img src="images/pathtracer_cornell-box.png" width="400"> </figure>
 
-They implement runtime behavior:
+### Volume Rendering (DVR)
 
-| Script | Function |
-|--------|----------|
-| `PlayerComponent` | Player movement |
-| `ThirdViewPlayerComponent` | Third-person camera |
-| `ZombieComponent` | Target tracking AI |
-| `CameraManagerComponent` | Camera switching |
-| `PlayerManagerComponent` | Multiple players |
-| `DebugPositionComponent` | Debug utilities |
+FGE supports Direct Volume Rendering (DVR):
+- Ray marching
+- Transfer function support
+- Isosurface representation
 
-Scripts run every frame and modify transforms, cameras and lights, which are then pushed to the GPU via FGE.
+Volume rendering with transfer function:
+<figure style="text-align:center;"> <img src="images/dvr.png" width="400"> </figure>
 
-## GPU Scene Management (FGE)
+### ANARI Integration
 
-FGE manages all GPU data using custom memory managers:
-- MeshMemoryManager: BLAS, vertex & index buffers
-- InstanceMemoryManager: TLAS
-- MaterialMemoryManager:GPU material tables
-- TextureMemoryManager: SRV arrays & indirection tables
-- LightMemoryManager: structured buffers
-- Constant buffers: camera & frame data
+FGE can also be used through a **dedicated ANARI implementation** (`fge/fgeia/`), exposing the engine as an ANARI device.
 
-Updates from FCE (movement, new objects, lights, etc.) are incrementally uploaded to the GPU, minimizing bandwidth and rebuild cost.
-
-## Shader Pipeline
-
-Shaders are compiled with DXC into DXIL libraries:
-
-| Shader | Role |
-|--------|------|
-| raygen.hlsl | Primary ray generation |
-| miss.hlsl | Background / environment |
-| closesthit.hlsl | Material shading |
-
-The ray tracing pipeline uses:
-- global & local root signatures
-- shader binding table (SBT)
-- TLAS and per-mesh BLAS
-- bindless textures & materials
+This allows:
+- interoperability with external ANARI-based applications such as Blender
+- comparison with other ANARI renderers
+- validation of the DirectX 12 backend through the ANARI abstraction layer
 
 ## Project Structure
 
 ```
 FCE/
-├── application/
-│   ├── main.cpp
-│   └── scene/            # XML scenes, meshes, textures
+├── application/          # Entry point & scenes
 ├── fge/                  # Rendering engine
-│   ├── src/
-│   ├── include/
-│   ├── shaders/
-│   ├── external/         # DirectXTex, tinyxml2, d3dx12
-│   └── scene/
-├── src/                  # FCE engine code
-│   ├── Application.cpp
-│   ├── MainWindow.cpp
-│   ├── UpdateContext.cpp
-│   ├── objects/
-│   └── io/
-├── include/              # FCE public headers
-├── modelisation/         # UML & design docs
-├── CMakeLists.txt
-└── README.md
+│   ├── src/              # DirectX12 & ANARI render engine
+│   ├── include/          # Public headers
+│   │   ├── fge/          # Headers of fge
+│   │   └── fgewa/        # Headers for ANARI Backend
+│   ├── fgeia/            # ANARI implementation of FGE
+│   └── shaders/          # DXR shaders
+├── src/                  # FCE runtime (ECS, input, logic)
+├── include/              # Public headers
+├── modelisation/         # UML / diagrams
+├── images/               # README figures
+└── CMakeLists.txt
 ```
 
 ## Compilation
 
 ### Requirements
+
 - Windows 10/11
-- Ninja
-- CMake ≥ 3.21
-- DirectX 12 SDK
-- DXC (DirectX Shader Compiler)
-- GPU compatible with DXR (RTX, RDNA2+)
-- DirectXTex
-- tinyxml2
+- CMake + Ninja
+- DirectX 12 + DXR GPU
+- DXC (Shader Compiler)
+- ANARI SDK (optional backend)
+- vcpkg (recommended)
+
+### Clone
 
 To download the sub Git repositories, you can run the following command:
 
 ```bash
-git clone --recursive https://github.com/tonnom/FCE.git
+git clone --recursive https://github.com/Founzo77/FCE---2025-2026-
 ```
 
 ### Build
@@ -258,7 +153,7 @@ git clone --recursive https://github.com/tonnom/FCE.git
 ```bash
 mkdir build
 cd build
-cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
+cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DFGEIA_AUTO_GENERATE_QUERIES=OFF -Danari_DIR=C:/src/anari_debug/lib/cmake/anari-0.15.0 -DCMAKE_TOOLCHAIN_FILE=C:/src/vcpkg/scripts/buildsystems/vcpkg.cmake ..
 cmake --build . --parallel
 ```
 
@@ -271,18 +166,3 @@ Run the main engine:
 ```bash
 main.exe
 ```
-
-### Scenes
-
-Scenes are described in XML and define:
-- meshes (OBJ)
-- textures
-- materials
-- lights
-- instances
-- cameras
-- scripted game objects
-
-They are loaded by:
-- `fge::XmlReader` (rendering data)
-- `fce::XmlReader` (game objects & scripts)

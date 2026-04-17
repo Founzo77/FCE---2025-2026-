@@ -7,21 +7,17 @@
 #include <sstream>
 #include <iostream>
 
+#include <charconv>
+#include <fstream>
+#include <filesystem>
+
 namespace fge
 {
-    ObjReader::ObjReader(const string& pathFile, const XMFLOAT3& translation, 
-        const XMFLOAT3& rotation, const float scale)
-    {
-        ObjReader::read(pathFile, translation, rotation, scale,
-            m_mesh, m_materials, m_texturePathFiles, m_nameMaterialToTextureIndex,
-            m_pathTextureToTextureIndex, m_nameMaterialToMaterialIndex);
-    }
-
     void ObjReader::read(const string& pathFile, const XMFLOAT3& translation, 
         const XMFLOAT3& rotation, const float scale, 
-        Mesh& mesh, vector<Material>& materials, vector<string>& texturePathFiles, 
-        unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
-        unordered_map<string, uint32_t>& pathTextureToTextureIndex,
+        Mesh& mesh, vector<Material>& materials, concurrent_vector<string>& texturePathFiles, 
+        concurrent_unordered_map<string, uint32_t>& nameMaterialToTextureIndex,
+        concurrent_unordered_map<string, uint32_t>& pathTextureToTextureIndex,
         unordered_map<string, uint32_t>& nameMaterialToMaterialIndex)
     {
         globalLogger().debug() << "Loading OBJ file: " << pathFile;

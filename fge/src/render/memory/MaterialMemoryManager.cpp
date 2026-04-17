@@ -11,6 +11,11 @@
 
 namespace fge
 {
+    MaterialMemoryManager::~MaterialMemoryManager()
+    {
+        reset();
+    }
+    
     void MaterialMemoryManager::startInitialize(ComPtr<ID3D12Device5> device, 
         ComPtr<ID3D12GraphicsCommandList4> directCommandList)
     {
@@ -25,6 +30,7 @@ namespace fge
 
         throwIfFailed(device->CreateHeap(&desc, IID_PPV_ARGS(&m_deviceHeap)),
             "Failed to create ID3D12Heap");
+        d12SetDebugName(m_deviceHeap, L"Material Heap");
 
         D3D12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
             m_materialsPool.getBufferTotalSize());
@@ -32,14 +38,20 @@ namespace fge
         throwIfFailed(device->CreatePlacedResource(m_deviceHeap.Get(), 0,
             &bufferDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&m_deviceBuffer)),
             "Failed to create placed material buffer");
+        d12SetDebugName(m_deviceBuffer, L"Material Heap Buffer");
 
         m_uploadBuffer.initialize(device, m_materialsPool.getBufferTotalSize());
+        d12SetDebugName(m_uploadBuffer.m_buffer, L"Material Heap Upload Buffer");
 
         m_indirectionTableUploadBuffer.initialize(device, 
             m_materialsPool.getNbMaxElements() * sizeof(uint32_t));
+        d12SetDebugName(m_indirectionTableUploadBuffer.m_buffer, 
+            L"Material Indirection Table Upload Buffer");
         m_indirectionTableDeviceBuffer.initialize(device, 
             m_materialsPool.getNbMaxElements() * sizeof(uint32_t), D3D12_RESOURCE_FLAG_NONE,
             D3D12_RESOURCE_STATE_COPY_DEST);
+        d12SetDebugName(m_indirectionTableDeviceBuffer.m_buffer, 
+            L"Material Indirection Table Buffer");
 
         m_logicalIndexToPhysical.resize(m_materialsPool.getNbMaxElements(), UINT32_MAX);
     }
@@ -75,6 +87,24 @@ namespace fge
                 D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)
         };
         directCommandList->ResourceBarrier(2, barrier);
+    }
+
+    void MaterialMemoryManager::reset()
+    {
+        m_materialsPool.reset();
+        
+        m_logicalIndexToPhysical.clear();
+        m_logicalIndexToPhysical.shrink_to_fit();
+        m_physicalMaterialsUpdated.clear();
+        m_physicalMaterialsUpdated.shrink_to_fit();
+        
+        m_deviceHeap.Reset();
+        
+        m_deviceBuffer.Reset();
+        m_uploadBuffer.reset();
+
+        m_indirectionTableUploadBuffer.reset();
+        m_indirectionTableDeviceBuffer.reset();
     }
 
     uint64_t MaterialMemoryManager::getMaterialPageSize() const
@@ -140,7 +170,7 @@ namespace fge
 
             if (r.m_index <= backEnd) 
             {
-                const uint32_t newEnd = max(backEnd, r.m_index + r.m_count);
+                const uint32_t newEnd = std::max(backEnd, r.m_index + r.m_count);
                 back.m_count = newEnd - back.m_index;
             }
             else 

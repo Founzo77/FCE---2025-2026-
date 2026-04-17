@@ -1,0 +1,112 @@
+{
+  "info": {
+    "name": "FGEIA_DEVICE",
+    "type": "device",
+    "dependencies": [
+      "anari_core_1_0",
+      "anari_core_objects_base_1_0",
+      "khr_camera_perspective",
+      "khr_geometry_triangle",
+      "khr_instance_transform",
+      "khr_light_point",
+      "khr_material_matte",
+      "khr_renderer_background_color",
+      "khr_sampler_image1d",
+      "khr_sampler_image2d",
+      "khr_sampler_image3d",
+      "khr_spatial_field_structured_regular",
+      "khr_volume_transfer_function1d",
+      "khr_device_synchronization",
+      "fge_directx12_output_buffers"
+    ]
+  },
+
+  "objects": [
+    {
+      "type": "ANARI_RENDERER",
+      "name": "default",
+      "parameters": [
+        {
+          "name": "pixelSamples",
+          "types": ["ANARI_INT32"],
+          "tags": [],
+          "default": 1,
+          "description": "Number of samples per pixel"
+        },
+        {
+          "name": "background",
+          "types": ["ANARI_FLOAT32_VEC3"],
+          "tags": [],
+          "default": [0.0, 0.0, 0.0],
+          "description": "Background color"
+        }
+      ]
+    },
+
+    {
+      "type": "ANARI_GEOMETRY",
+      "name": "triangle",
+      "parameters": [
+        {
+          "name": "vertex.position",
+          "types": ["ANARI_ARRAY1D"],
+          "tags": ["required"],
+          "description": "Array of vertex positions (vec3)"
+        },
+        {
+          "name": "vertex.normal",
+          "types": ["ANARI_ARRAY1D"],
+          "tags": [],
+          "description": "Optional array of vertex normals"
+        },
+        {
+          "name": "vertex.color",
+          "types": ["ANARI_ARRAY1D"],
+          "tags": [],
+          "description": "Optional array of vertex colors"
+        },
+        {
+          "name": "primitive.index",
+          "types": ["ANARI_ARRAY1D"],
+          "tags": ["required"],
+          "description": "Triangle index buffer"
+        }
+      ]
+    },
+
+    {
+      "type": "ANARI_MATERIAL",
+      "name": "matte",
+      "parameters": [
+        {
+          "name": "color",
+          "types": ["ANARI_FLOAT32_VEC3"],
+          "tags": [],
+          "default": [0.8, 0.8, 0.8],
+          "description": "Base color"
+        }
+      ]
+    },
+
+    {
+      "type": "ANARI_LIGHT",
+      "name": "point",
+      "parameters": [
+        {
+          "name": "position",
+          "types": ["ANARI_FLOAT32_VEC3"],
+          "tags": [],
+          "description": "Light position"
+        },
+        {
+          "name": "intensity",
+          "types": ["ANARI_FLOAT32"],
+          "tags": [],
+          "default": 1.0,
+          "description": "Light intensity"
+        }
+      ]
+    }
+
+  ]
+}

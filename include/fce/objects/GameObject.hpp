@@ -9,8 +9,6 @@
 #include <vector>
 #include <memory>
 
-using fge::LogicalIndex;
-
 using std::vector;
 using std::unordered_map;
 using std::unique_ptr;
@@ -25,9 +23,11 @@ namespace fce
     private:
         const UpdateContext* m_updateContext;
         ObjectManager* m_objectManager;
-        LogicalIndex m_index;
+        fge::LogicalIndex m_index;
         unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>> m_components;
         unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>> m_scripts;
+        
+        friend class ObjectManager;
 
     public:
         GameObject() = default;
@@ -36,8 +36,8 @@ namespace fce
         GameObject(
             unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>>&& components,
             unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>>&& scripts) :
-            m_components(std::move(components)), m_scripts(std::move(scripts)) {}
-        GameObject(const LogicalIndex index, 
+            m_index(), m_components(std::move(components)), m_scripts(std::move(scripts)) {}
+        GameObject(const fge::LogicalIndex index, 
             unordered_map<EngineComponentType, vector<unique_ptr<EngineComponent>>>&& components,
             unordered_map<ScriptComponentType, vector<unique_ptr<ScriptComponent>>>&& scripts) :
             m_index(index), m_components(std::move(components)), m_scripts(std::move(scripts)) {}
@@ -49,9 +49,9 @@ namespace fce
         GameObject& operator=(GameObject&&) = default;
 
         void initialize(const UpdateContext* updateContext, 
-            ObjectManager* objectManager, LogicalIndex index);
+            ObjectManager* objectManager, fge::LogicalIndex index);
         
-        LogicalIndex getIndex() const;
+        fge::LogicalIndex getIndex() const;
         ObjectManager* getObjectManager();
         const UpdateContext* getUpdateContext() const;
         
@@ -60,6 +60,8 @@ namespace fce
         
         template<typename TYPE>
         void addComponent();
+        template<typename TYPE>
+        void addComponent(const TYPE& component);
 
         template<typename TYPE>
         void removeComponent();
@@ -70,6 +72,8 @@ namespace fce
         const TYPE* getComponent() const;
 
         void update();
+
+        void destroy();
     };
 
     template<typename TYPE>
@@ -118,6 +122,39 @@ namespace fce
             ScriptComponentType type = scriptComponentTypeFrom<TYPE>();
 
             auto ptr = std::make_unique<TYPE>();
+            ptr->initialize(this);
+
+            m_scripts[type].push_back(std::move(ptr));
+            return;
+        }
+        else
+        {
+            static_assert(isEngineComponent<TYPE>() || isScriptComponent<TYPE>(),
+                "TYPE must derive from EngineComponent or ScriptComponent.");
+        }
+    }
+
+    template<typename TYPE>
+    void GameObject::addComponent(const TYPE& component)
+    {
+        if constexpr(isEngineComponent<TYPE>())
+        {
+            EngineComponentType type = engineComponentTypeFrom<TYPE>();
+
+            if (hasComponent<TYPE>())
+                return;
+
+            auto ptr = std::make_unique<TYPE>(component);
+            ptr->initialize(this);
+
+            m_components[type].push_back(std::move(ptr));
+            return;
+        }
+        else if constexpr(isScriptComponent<TYPE>())
+        {
+            ScriptComponentType type = scriptComponentTypeFrom<TYPE>();
+
+            auto ptr = std::make_unique<TYPE>(component);
             ptr->initialize(this);
 
             m_scripts[type].push_back(std::move(ptr));

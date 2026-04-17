@@ -17,14 +17,15 @@ namespace fgewa
         Library() = default;
         ~Library();
 
-        Library(const Library&) = default;
-        Library& operator=(const Library&) = default;
-        Library(Library&&) = default;
-        Library& operator=(Library&&) = default;
+        Library(const Library&) = delete;
+        Library& operator=(const Library&) = delete;
+        Library(Library&& other);
+        Library& operator=(Library&& other);
         
         void initialize(const string& name, ANARIStatusCallback callBack);
         void reset();
         ANARILibrary getHandle() noexcept;
         const ANARILibrary getHandle() const noexcept;
+        void logAvailableDevices();
     };
 }

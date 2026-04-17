@@ -15,7 +15,32 @@ namespace fgewa
         m_device = nullptr;
     }
 
-    void Surface::initialize(shared_ptr<Device> device, Geometry& geometry, Material& material)
+    Surface::Surface(Surface&& other) : m_surface(other.m_surface),
+        m_geometry(std::move(other.m_geometry)), m_material(std::move(other.m_material)), 
+        m_device(other.m_device)
+    {
+        other.m_surface = nullptr;
+    }
+
+    Surface& Surface::operator=(Surface&& other)
+    {
+        if(this != &other)
+        {
+            reset();
+
+            m_surface = other.m_surface;
+            m_geometry = std::move(other.m_geometry);
+            m_material = std::move(other.m_material);
+            m_device = other.m_device;
+
+            other.m_surface = nullptr;
+        }
+
+        return *this;
+    }
+
+    void Surface::initialize(shared_ptr<Device> device, 
+        Geometry&& geometry, Material&& material)
     {
         m_device = device;
         throwIfFailed(!m_surface, "A Surface has already been created");
@@ -29,6 +54,9 @@ namespace fgewa
         anariSetParameter(m_device->getHandle(), m_surface, "material", ANARI_MATERIAL,
             material.getMemoryHandle());
         anariCommitParameters(m_device->getHandle(), m_surface);
+
+        m_geometry = std::move(geometry);
+        m_material = std::move(material);
     }
 
     void Surface::reset()

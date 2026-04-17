@@ -6,3 +6,4 @@ target_sources(fce PRIVATE
 
 add_subdirectory(io)
 add_subdirectory(objects)
+add_subdirectory(benchmark)

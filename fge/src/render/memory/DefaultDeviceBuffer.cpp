@@ -6,6 +6,11 @@
 
 namespace fge
 {
+    DefaultDeviceBuffer::~DefaultDeviceBuffer()
+    {
+        reset();
+    }
+
     void DefaultDeviceBuffer::initialize(ComPtr<ID3D12Device5> device, uint64_t size, 
         D3D12_RESOURCE_FLAGS resourceFlag, 
         D3D12_RESOURCE_STATES initialResourceState)
@@ -26,5 +31,11 @@ namespace fge
     {
         m_buffer.Reset();
         initialize(device, size, resourceFlag, initialResourceState);   
+    }
+
+    void DefaultDeviceBuffer::reset()
+    {
+        m_buffer.Reset();
+        m_size = 0;
     }
 }

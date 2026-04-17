@@ -1,10 +1,14 @@
 #pragma once
 
-#include <Windows.h>
+#include "PlatformWindows.hpp"
 
 #include <exception>
 #include <cstdint>
 #include <string>
+#include <sstream>
+#include <d3d12.h>
+#include <dxgi.h>
+#include <dxgidebug.h>
 
 namespace fge
 {
@@ -27,7 +31,7 @@ namespace fge
     {
         if(FAILED(hResult))
         {
-            throw std::exception();
+            throw std::runtime_error("Exception");
         }
     }
 
@@ -35,7 +39,7 @@ namespace fge
     {
         if(FAILED(hResult))
         {
-            throw std::exception(message);
+            throw std::runtime_error(message);
         }
     }
 
@@ -43,7 +47,7 @@ namespace fge
     {
         if(!handle)
         {
-            throw std::exception();
+            throw std::runtime_error("Exception");
         }
     }
 
@@ -51,7 +55,7 @@ namespace fge
     {
         if(!handle)
         {
-            throw std::exception(message);
+            throw std::runtime_error(message);
         }
     }
 
@@ -59,7 +63,7 @@ namespace fge
     {
         if(!handle)
         {
-            throw std::exception();
+            throw std::runtime_error("Exception");
         }
     }
 
@@ -67,7 +71,7 @@ namespace fge
     {
         if(!handle)
         {
-            throw std::exception(message);
+            throw std::runtime_error(message);
         }
     }
 
@@ -75,7 +79,7 @@ namespace fge
     {
         if(!handle)
         {
-            throw std::exception(message.c_str());
+            throw std::runtime_error(message.c_str());
         }
     }
 
@@ -88,4 +92,47 @@ namespace fge
     { 
         return (size + 255) & ~255ull; 
     }
+
+    namespace debug
+    {
+        inline const char* ExtractFileName(const char* path)
+        {
+            const char* file = path;
+
+            for (const char* p = path; *p; ++p)
+            {
+                if (*p == '/' || *p == '\\')
+                    file = p + 1;
+            }
+
+            return file;
+        }
+
+        inline std::wstring BuildDebugName(const char* file, const char* function,
+            int line, const wchar_t* message)
+        {
+            std::wstringstream ss;
+            ss << L"[" << function << L" @ " << ExtractFileName(file) << L":" << line << L"] " << message;
+            return ss.str();
+        }
+
+        inline void SetDebugName(ID3D12Object* obj, const char* file,
+            const char* function, int line, const wchar_t* message = L"")
+        {
+            if (!obj) return;
+            auto name = BuildDebugName(file, function, line, message);
+            obj->SetName(name.c_str());
+        }
+
+        inline void SetDebugName(IDXGIObject* obj, const char* file,
+            const char* function, int line, const wchar_t* message = L"")
+        {
+            if (!obj) return;
+            auto name = BuildDebugName(file, function, line, message);
+            obj->SetPrivateData(WKPDID_D3DDebugObjectName, UINT(name.size()), name.c_str());
+        }
+    }
+
+    #define d12SetDebugName(object, ...) \
+        fge::debug::SetDebugName(object.Get(), __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 }

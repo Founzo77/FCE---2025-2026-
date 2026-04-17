@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Windows.h>
+#include "../PlatformWindows.hpp"
 #include <wrl/client.h>
 #include <d3d12.h>
 
@@ -20,6 +20,7 @@ namespace fge
         ~CommandQueue() = default;
 
         void initialize(ComPtr<ID3D12Device5> device, D3D12_COMMAND_LIST_TYPE type);
+        void reset();
         void flush(ComPtr<ID3D12Fence> fence, HANDLE event, uint64_t& fenceValue);
     };
 }

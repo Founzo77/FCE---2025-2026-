@@ -1,6 +1,5 @@
 # Project FCE : Real-Time Interactive Ray Tracing Engine (5th year)
 
-Personal Project<br>
 2025-2026
 
 FCE (Founzo Creativity Engine) is a real-time interactive engine built on top of FGE, a GPU ray-tracing renderer primarily based on DirectX 12, with optional support for ANARI through an abstraction layer.

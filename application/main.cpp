@@ -61,9 +61,9 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
     config.m_duration = 5;
     //fce::Benchmark mainWindow(hInstance, 1500, 1500, "scene/prototype_benchmark.xml", config);
 
-    fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype.xml");
+    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype.xml");
     //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype_no_volume.xml");
-    //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/cornell-box.xml");
+    fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/cornell-box.xml");
 
     //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/prototype_barney.xml");
     //fce::MainWindow mainWindow(hInstance, 1500, 1500, "scene/game_shinjuku_gojo.xml");
